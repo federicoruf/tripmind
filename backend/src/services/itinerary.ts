@@ -11,6 +11,7 @@ import { buildAugmentedPrompt } from "../utils/buildAugmentedPrompt";
 import { getWeather, getPlaces } from "../tools/tripTools";
 import { Day } from "../schemas/itinerarySchema.zod";
 import { logRequestCost, GeminiUsage } from "../utils/costLogger";
+import { conReintento } from "../utils/geminiRetry";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -173,34 +174,6 @@ async function buildFinalPrompt(prompt: string): Promise<string> {
   return buildAugmentedPrompt(prompt, chunks, toolData);
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function conReintento<T>(fn: () => Promise<T>, intentos = 3): Promise<T> {
-  for (let i = 0; i < intentos; i++) {
-    try {
-      return await fn();
-    } catch (err: any) {
-      const es429 = err?.status === 429 || err?.error?.code === 429;
-      if (!es429 || i === intentos - 1) throw err;
-
-      // Gemini devuelve el tiempo de espera sugerido en retryDelay (ej. "16s")
-      const retryDelayStr =
-        err?.error?.details?.find((d: any) => d["@type"]?.includes("RetryInfo"))
-          ?.retryDelay ?? "10s";
-      const segundos = parseInt(retryDelayStr, 10) || 10;
-      console.warn(
-        `[itinerary service] Rate limit alcanzado, reintentando en ${segundos}s (intento ${i + 1}/${intentos})...`,
-      );
-      await sleep(segundos * 1000 + 500); // pequeño margen extra
-    }
-  }
-  throw new Error(
-    "No se pudo completar la llamada a Gemini tras varios reintentos.",
-  );
-}
-
 /**
  * Generación NO streaming: usada por el eval, tests, o cualquier consumidor
  * que solo necesite el itinerario final ya armado (sin ir emitiendo por SSE).
@@ -275,16 +248,21 @@ export async function generateItinerary(prompt: string): Promise<Day[]> {
 export async function streamItinerary(prompt: string) {
   const augmentedPrompt = await buildFinalPrompt(prompt);
 
-  const stream = await ai.models.generateContentStream({
-    model: process.env.GEMINI_MODEL!,
-    contents: augmentedPrompt,
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: itinerarySchema,
-      maxOutputTokens: MAX_OUTPUT_TOKENS_ITINERARY,
-    },
-  });
+  // El retry solo cubre el arranque del stream (antes de emitir el primer
+  // chunk). Una vez que empieza a iterar, ya se le mandaron datos parciales
+  // al cliente por SSE y no se puede reintentar sin duplicar contenido.
+  const stream = await conReintento(() =>
+    ai.models.generateContentStream({
+      model: process.env.GEMINI_MODEL!,
+      contents: augmentedPrompt,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: itinerarySchema,
+        maxOutputTokens: MAX_OUTPUT_TOKENS_ITINERARY,
+      },
+    }),
+  );
 
   // Gemini manda usageMetadata en cada chunk (acumulativo); nos quedamos con
   // el del último para loguear el costo real de todo el stream una sola vez.
