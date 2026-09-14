@@ -32,6 +32,50 @@ export interface RequestCostLog {
 
 const logs: RequestCostLog[] = [];
 
+// --- Presupuesto ---
+// Se lee en cada chequeo (no una sola vez al cargar el módulo) para poder
+// testearlo con distintos valores y permitir cambiarlo en runtime sin reiniciar.
+function getMaxBudget(): number {
+  return Number(process.env.GEMINI_MAX_BUDGET_USD) || 5; // $5 por defecto
+}
+const WARN_THRESHOLD_RATIO = 0.8; // avisa al llegar al 80% del presupuesto
+
+let avisoYaEmitido = false; // para no spamear el warning en cada llamada
+
+/**
+ * Chequea el gasto acumulado contra el presupuesto configurado.
+ * - Tira error si ya se superó el presupuesto (para cortar antes de la
+ *   siguiente llamada a Gemini y no seguir gastando).
+ * - Loguea un warning una sola vez al cruzar el 80%.
+ *
+ * Llamar ANTES de cada llamada a Gemini (no alcanza con llamarlo después de
+ * loguear el costo, porque para entonces la llamada ya se pagó).
+ */
+export function assertBudgetOk(): void {
+  const total = getTotalCost();
+  const maxBudget = getMaxBudget();
+
+  if (total >= maxBudget) {
+    throw new Error(
+      `Presupuesto de Gemini agotado: $${total.toFixed(4)} de $${maxBudget} usados. ` +
+        `No se realizan más llamadas.`,
+    );
+  }
+
+  if (!avisoYaEmitido && total >= maxBudget * WARN_THRESHOLD_RATIO) {
+    avisoYaEmitido = true;
+    console.warn(
+      `[costLogger] Aviso: se alcanzó el ${(WARN_THRESHOLD_RATIO * 100).toFixed(0)}% ` +
+        `del presupuesto ($${total.toFixed(4)} de $${maxBudget}).`,
+    );
+  }
+}
+
+// Solo para tests: resetea el estado del aviso entre casos.
+export function _resetAvisoParaTests(): void {
+  avisoYaEmitido = false;
+}
+
 export function logRequestCost(
   model: string,
   route: string,

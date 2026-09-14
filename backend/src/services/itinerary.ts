@@ -10,7 +10,7 @@ import { retrieveContext } from "../rag/retrieve";
 import { buildAugmentedPrompt } from "../utils/buildAugmentedPrompt";
 import { getWeather, getPlaces } from "../tools/tripTools";
 import { Day } from "../schemas/itinerarySchema.zod";
-import { logRequestCost, GeminiUsage } from "../utils/costLogger";
+import { logRequestCost, GeminiUsage, assertBudgetOk } from "../utils/costLogger";
 import { conReintento } from "../utils/geminiRetry";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
@@ -102,6 +102,8 @@ async function resolveToolData(prompt: string): Promise<string> {
   const today = new Date().toISOString().split("T")[0];
 
   for (let iteracion = 0; iteracion < MAX_TOOL_LOOP_ITERATIONS; iteracion++) {
+    assertBudgetOk();
+
     const response = await conReintento(() =>
       ai.models.generateContent({
         model: process.env.GEMINI_MODEL!,
@@ -181,6 +183,7 @@ async function buildFinalPrompt(prompt: string): Promise<string> {
 export async function generateItinerary(prompt: string): Promise<Day[]> {
   const augmentedPrompt = await buildFinalPrompt(prompt);
 
+  assertBudgetOk();
   const response = await conReintento(() =>
     ai.models.generateContent({
       model: process.env.GEMINI_MODEL!,
@@ -248,6 +251,7 @@ export async function generateItinerary(prompt: string): Promise<Day[]> {
 export async function streamItinerary(prompt: string) {
   const augmentedPrompt = await buildFinalPrompt(prompt);
 
+  assertBudgetOk();
   // El retry solo cubre el arranque del stream (antes de emitir el primer
   // chunk). Una vez que empieza a iterar, ya se le mandaron datos parciales
   // al cliente por SSE y no se puede reintentar sin duplicar contenido.

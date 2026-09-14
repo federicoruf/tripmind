@@ -2,9 +2,15 @@
 //
 // Correr con: npx tsx --test src/utils/costLogger.test.ts
 
-import { test, describe } from "node:test";
+import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import { logRequestCost, getTotalCost, getLogs } from "./costLogger";
+import {
+  logRequestCost,
+  getTotalCost,
+  getLogs,
+  assertBudgetOk,
+  _resetAvisoParaTests,
+} from "./costLogger";
 
 describe("costLogger", () => {
   test("calcula bien el costo para gemini-3.1-flash-lite", () => {
@@ -47,5 +53,52 @@ describe("costLogger", () => {
     const logs = getLogs();
     const ultimo = logs[logs.length - 1];
     assert.equal(ultimo.route, "stream-itinerary");
+  });
+});
+
+describe("assertBudgetOk", () => {
+  // getTotalCost() acumula sobre TODO el proceso (mismo diseño que el resto
+  // del módulo), así que cada test usa su propio presupuesto relativo al
+  // gasto ya acumulado, en vez de valores absolutos.
+  before(() => {
+    _resetAvisoParaTests();
+  });
+
+  test("no tira error si el gasto está por debajo del presupuesto", () => {
+    const gastoActual = getTotalCost();
+    process.env.GEMINI_MAX_BUDGET_USD = String(gastoActual + 10);
+
+    assert.doesNotThrow(() => assertBudgetOk());
+  });
+
+  test("tira error si el gasto ya alcanzó el presupuesto", () => {
+    const gastoActual = getTotalCost();
+    // Presupuesto ya consumido por completo (o de menos).
+    process.env.GEMINI_MAX_BUDGET_USD = String(Math.max(gastoActual - 0.000001, 0));
+
+    assert.throws(() => assertBudgetOk(), /Presupuesto de Gemini agotado/);
+  });
+
+  test("loguea un warning una sola vez al cruzar el 80% del presupuesto", () => {
+    _resetAvisoParaTests();
+    const gastoActual = getTotalCost();
+    // Presupuesto tal que el gasto actual ya es justo el 80%.
+    process.env.GEMINI_MAX_BUDGET_USD = String(gastoActual / 0.8);
+
+    const warnOriginal = console.warn;
+    let llamadasWarn = 0;
+    console.warn = (...args: any[]) => {
+      llamadasWarn++;
+      warnOriginal(...args);
+    };
+
+    try {
+      assertBudgetOk(); // cruza el 80% -> debería avisar
+      assertBudgetOk(); // ya avisó antes -> no debería volver a avisar
+    } finally {
+      console.warn = warnOriginal;
+    }
+
+    assert.equal(llamadasWarn, 1);
   });
 });
