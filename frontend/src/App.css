@@ -162,9 +162,41 @@ body {
   margin: 0 0 4px;
 }
 
+.activity__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .activity__location {
   font-size: 0.8rem;
   color: var(--terracotta);
+}
+
+.activity__source {
+  font-size: 0.72rem;
+  color: var(--sage);
+  border: 1px solid #D8CFC0;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.outcome-banner {
+  border-left: 3px solid var(--sage);
+  padding: 10px 14px;
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+  background: #F0F2EC;
+}
+
+.outcome-banner--partial {
+  border-left-color: var(--terracotta);
+  background: #FBEDE5;
+}
+
+.outcome-banner--failed {
+  display: none; /* el error-banner ya cubre este caso con más detalle */
 }
 
 .empty-state {
