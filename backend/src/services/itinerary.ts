@@ -146,13 +146,13 @@ async function resolveToolData(prompt: string): Promise<string> {
         let result;
         if (call.name === "get_weather") {
           result = await getWeather(
-            call.args.city as string,
-            call.args.date as string,
+            call.args!.city as string,
+            call.args!.date as string,
           );
         } else if (call.name === "get_places") {
           result = await getPlaces(
-            call.args.city as string,
-            call.args.category as "naturaleza" | "comida" | "cultura",
+            call.args!.city as string,
+            call.args!.category as "naturaleza" | "comida" | "cultura",
           );
         }
         collected.push(`[${call.name}] ${JSON.stringify(result)}`);

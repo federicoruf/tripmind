@@ -1,7 +1,8 @@
 // src/rag/ingest.ts
 import path from "path";
 import fs from "fs/promises";
-import { ChromaClient, type EmbeddingFunction } from "chromadb";
+import { type EmbeddingFunction } from "chromadb";
+import { getChromaClient } from "./chromaClient.js";
 import { extractText } from "./extract.js";
 import { chunkText } from "./chunk.js";
 import { embed } from "./embed.js";
@@ -16,7 +17,7 @@ class NoopEmbeddingFunction implements EmbeddingFunction {
 }
 
 async function ingest() {
-  const chroma = new ChromaClient({ host: "localhost", port: 8000, ssl: false });
+  const chroma = getChromaClient();
   const collection = await chroma.getOrCreateCollection({
     name: COLLECTION_NAME,
     embeddingFunction: new NoopEmbeddingFunction(), //

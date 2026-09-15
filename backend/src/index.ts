@@ -12,9 +12,13 @@ if (!apiKey) {
 
 const app = express();
 
+// En local usa el puerto por defecto de Vite. En producción, seteá
+// FRONTEND_URL con la URL real del frontend deployado.
+const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
 app.use(
     cors({
-    origin: "http://localhost:5173", // el puerto de tu frontend Vite
+    origin: frontendUrl,
     methods: ["GET", "POST"],
   }),
 );
@@ -24,6 +28,8 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/itinerary", itinerary);
 
-app.listen(3000, () => {
+const port = Number(process.env.PORT) || 3000;
+
+app.listen(port, () => {
   console.log("Servidor corriendo en http://localhost:3000");
 });

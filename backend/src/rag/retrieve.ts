@@ -2,6 +2,7 @@
 import { ChromaClient, type EmbeddingFunction } from "chromadb";
 
 import { embed } from "./embed.js";
+import { getChromaClient } from "./chromaClient.js";
 
 const COLLECTION_NAME = "tripmind_guides";
 
@@ -20,6 +21,7 @@ class NoopEmbeddingFunction implements EmbeddingFunction {
 export interface RetrievedChunk {
   content: string;
   source: string;
+  distance: number;
 }
 
 export async function retrieveContext(
@@ -27,11 +29,7 @@ export async function retrieveContext(
   options: { topK?: number; maxDistance?: number } = {},
 ): Promise<RetrievedChunk[]> {
   const { topK = 4, maxDistance = DEFAULT_MAX_DISTANCE } = options;
-  const client = new ChromaClient({
-    host: "localhost",
-    port: 8000,
-    ssl: false,
-  });
+  const client = getChromaClient();
   const collection = await client.getOrCreateCollection({
     name: COLLECTION_NAME,
     embeddingFunction: new NoopEmbeddingFunction(),
