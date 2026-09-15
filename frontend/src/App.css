@@ -1,0 +1,188 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500&display=swap');
+
+:root {
+  --paper: #F7F3EC;
+  --ink: #1F2D26;
+  --terracotta: #B5541D;
+  --sage: #7A8B78;
+  --card: #FFFFFF;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Inter', sans-serif;
+}
+
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+}
+
+.app__header {
+  margin-bottom: 32px;
+}
+
+.app__header h1 {
+  font-family: 'Fraunces', serif;
+  font-size: 2.25rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.app__header p {
+  margin: 0;
+  color: var(--sage);
+  font-size: 0.95rem;
+  max-width: 46ch;
+  line-height: 1.5;
+}
+
+.prompt-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 40px;
+}
+
+.prompt-box textarea {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  padding: 14px 16px;
+  border: 1px solid #DCD5C6;
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--ink);
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.prompt-box textarea:focus-visible {
+  outline: 2px solid var(--terracotta);
+  outline-offset: 1px;
+}
+
+.prompt-box button {
+  align-self: flex-start;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 10px 20px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.prompt-box button:hover:not(:disabled) {
+  background: var(--terracotta);
+}
+
+.prompt-box button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.prompt-box button:focus-visible {
+  outline: 2px solid var(--terracotta);
+  outline-offset: 2px;
+}
+
+.error-banner {
+  border-left: 3px solid var(--terracotta);
+  padding: 10px 14px;
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+  background: #FBEDE5;
+}
+
+.day {
+  margin-bottom: 40px;
+}
+
+.day__title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0 0 18px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.day__number {
+  color: var(--terracotta);
+}
+
+.timeline {
+  position: relative;
+  padding-left: 24px;
+  border-left: 1px solid #D8CFC0;
+}
+
+.activity {
+  position: relative;
+  padding-bottom: 22px;
+}
+
+.activity:last-child {
+  padding-bottom: 0;
+}
+
+.activity::before {
+  content: '';
+  position: absolute;
+  left: -28px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sage);
+}
+
+.activity__time {
+  font-size: 0.8rem;
+  color: var(--sage);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 3px;
+}
+
+.activity__desc {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0 0 4px;
+}
+
+.activity__location {
+  font-size: 0.8rem;
+  color: var(--terracotta);
+}
+
+.empty-state {
+  border: 1px dashed #D8CFC0;
+  border-radius: 4px;
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--sage);
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .day {
+    animation: rise 0.3s ease-out;
+  }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}

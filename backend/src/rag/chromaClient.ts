@@ -11,6 +11,9 @@ import { ChromaClient, CloudClient } from "chromadb";
  */
 export function getChromaClient() {
   if (process.env.CHROMA_API_KEY) {
+    console.log(
+      `[chroma] Conectando a Chroma Cloud (tenant=${process.env.CHROMA_TENANT}, database=${process.env.CHROMA_DATABASE})`,
+    );
     return new CloudClient({
       apiKey: process.env.CHROMA_API_KEY,
       tenant: process.env.CHROMA_TENANT,
@@ -18,5 +21,6 @@ export function getChromaClient() {
     });
   }
 
+  console.log("[chroma] CHROMA_API_KEY no está seteada, conectando a Chroma LOCAL (localhost:8000)");
   return new ChromaClient({ host: "localhost", port: 8000, ssl: false });
 }

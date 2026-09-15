@@ -9,6 +9,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "ingest": "tsx src/rag/ingest.ts",
+    "ingest:prod": "dotenv -e .env.production -- tsx src/rag/ingest.ts",
     "eval": "tsx src/eval/eval-runner.ts"
   },
   "keywords": [],
@@ -29,6 +30,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
     "@types/node": "^26.4.1",
+    "dotenv-cli": "^8.0.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
