@@ -20,5 +20,5 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TRIPMIND_FRONTEND }}
           channelId: live
-          projectId: tripmind-frontend
+          projectId: mytripmind-io
           entryPoint: frontend

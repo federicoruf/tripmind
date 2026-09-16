@@ -47,7 +47,7 @@ Cada actividad del itinerario incluye un campo `source` que indica si el dato sa
 | LLM                  | Gemini (`@google/genai`) — modelo configurable por env var |
 | Backend              | Node.js, Express, TypeScript                               |
 | Streaming            | Server-Sent Events (SSE)                                   |
-| RAG                  | ChromaDB (vectores) + embeddings de Gemini                 |
+| RAG                  | ChromaDB (vectores) + embeddings de Gemini — Chroma Cloud en producción, Chroma local en desarrollo |
 | Validación de salida | Zod, contra `responseSchema` de Gemini                     |
 | Frontend             | React + Vite                                               |
 | APIs externas        | OpenWeatherMap (clima), Geoapify (lugares)                 |
@@ -171,13 +171,20 @@ npm run eval
 
 Un promedio por debajo del umbral configurado (`UMBRAL_MINIMO`) hace fallar el script — pensado para poder engancharlo a un CI y bloquear un deploy si la calidad del itinerario baja.
 
+## Deploy
+
+| Parte    | Dónde                              |
+| -------- | ----------------------------------- |
+| Frontend | Firebase Hosting                    |
+| Backend  | Railway                             |
+| Base de datos vectorial | Chroma Cloud (producción) |
+
 ## Estado del proyecto / próximos pasos
 
 - [ ] Exportar itinerario a PDF
 - [ ] Mostrar el itinerario en un mapa
 - [ ] Correr el eval en GitHub Actions en cada PR
 - [ ] Recibir desde el front archivos a ser ingestados para que luego el usuario cuando realize la solicitud del cronograma, tenga también como referencia los archivos ingestados
-- [ ] Deploy (frontend en Google Cloud, backend en Render/Railway)
 
 ## Licencia
 
