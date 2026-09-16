@@ -63,7 +63,20 @@ Cada actividad del itinerario incluye un campo `source` que indica si el dato sa
 - **Control de costos**: cada llamada a Gemini se loguea con su costo estimado y hay un presupuesto máximo configurable (`GEMINI_MAX_BUDGET_USD`) que corta las llamadas si se supera.
 - **Reintentos con backoff**: diferencia entre error recuperable (rate limit, servicio saturado) y no recuperable (cuota diaria agotada), para no reintentar cuando no tiene sentido.
 
+## Tool use
+- Como se mencionó anteriormente, el modelo usar 2 herramientas externas para obtener datos:
+        * get_weather (OpenWeather)
+        * get_places (Geoapify)
+- Lo que ocurre aquí es que el modelo analiza el texto que envia el usuario y en base a la lista de tools que hay, decide a cual de ellas invocar. 
+- Una vez que se obtiene este listado filtrado, el backend llama a estas APIS
 
+### Codigo
+* Ver el el service/itinerary.ts, se tiene una variable llamada tripDeclarations con la lista de funciones posibles a invocar, junto con su descripcion y parametros.
+* con la variable ```functionCallingConfig``` se le indica al modelo como debe ejeuctar las tool, en este caso el mismo tiene el poder de decidir si ejecutarlas o no.
+
+## Extraction
+* Como se planteo también la posibilidad de inyectar pdf, estos no puedes ser partidos en chucks directamente, por lo que se utiliza una funcion llamada extractText, que recibe el path del pdf y devuelve el texto en un string.
+* Recordar que los pdfs tienen un formato binario, por lo que no se puede leer directamente, se utiliza la libreria pdf-parse para parsear el pdf y obtener el texto.
 
 ## Requisitos
 
