@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useItineraryStream } from "./useItineraryStream";
+import tripmindIcon from "./assets/icon.svg";
 import "./App.css";
 
 // Traduce el campo "source" que arma el LLM a una etiqueta legible.
@@ -29,7 +30,10 @@ function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <h1>TripMind</h1>
+        <div className="app__brand">
+          <img src={tripmindIcon} alt="" className="app__icon" />
+          <h1>TripMind</h1>
+        </div>
         <p>Describí el viaje que tenés en mente y armamos el itinerario día por día.</p>
       </header>
 

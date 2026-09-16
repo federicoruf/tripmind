@@ -1,11 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
 
 :root {
-  --paper: #F7F3EC;
-  --ink: #1F2D26;
-  --terracotta: #B5541D;
-  --sage: #7A8B78;
+  /* Paleta extraída de icon.svg / logo.svg (TripMind) */
+  --navy: #0B4856;       /* texto principal, headings */
+  --teal: #1DA59F;       /* acento primario: botones, links */
+  --teal-dark: #157F7A;  /* hover del acento */
+  --teal-light: #6BC1BA; /* acento secundario: puntos, iconos */
+  --mint: #CFECEF;       /* fondos suaves, badges */
+  --mint-soft: #F2FAF9;  /* fondo general de la app */
   --card: #FFFFFF;
+  --border: #D7EAE8;
+  --muted: #4C7078;      /* texto secundario */
+  --success: #008B4E;    /* verde ya presente en el logo */
+  --warning: #C97A1E;
+  --danger: #C0483F;
 }
 
 * {
@@ -14,8 +22,8 @@
 
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--mint-soft);
+  color: var(--navy);
   font-family: 'Inter', sans-serif;
 }
 
@@ -29,17 +37,31 @@ body {
   margin-bottom: 32px;
 }
 
-.app__header h1 {
-  font-family: 'Fraunces', serif;
-  font-size: 2.25rem;
-  font-weight: 600;
+.app__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 0 0 6px;
+}
+
+.app__icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.app__header h1 {
+  font-family: 'Poppins', sans-serif;
+  font-size: 2.1rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--navy);
   letter-spacing: -0.01em;
 }
 
 .app__header p {
   margin: 0;
-  color: var(--sage);
+  color: var(--muted);
   font-size: 0.95rem;
   max-width: 46ch;
   line-height: 1.5;
@@ -56,35 +78,35 @@ body {
   font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
   padding: 14px 16px;
-  border: 1px solid #DCD5C6;
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   background: var(--card);
-  color: var(--ink);
+  color: var(--navy);
   resize: vertical;
   line-height: 1.5;
 }
 
 .prompt-box textarea:focus-visible {
-  outline: 2px solid var(--terracotta);
+  outline: 2px solid var(--teal);
   outline-offset: 1px;
 }
 
 .prompt-box button {
   align-self: flex-start;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 0.9rem;
-  font-weight: 500;
-  padding: 10px 20px;
-  background: var(--ink);
-  color: var(--paper);
+  font-weight: 600;
+  padding: 10px 22px;
+  background: var(--teal);
+  color: var(--card);
   border: none;
-  border-radius: 4px;
+  border-radius: 999px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
 .prompt-box button:hover:not(:disabled) {
-  background: var(--terracotta);
+  background: var(--teal-dark);
 }
 
 .prompt-box button:disabled {
@@ -93,16 +115,17 @@ body {
 }
 
 .prompt-box button:focus-visible {
-  outline: 2px solid var(--terracotta);
+  outline: 2px solid var(--teal-dark);
   outline-offset: 2px;
 }
 
 .error-banner {
-  border-left: 3px solid var(--terracotta);
+  border-left: 3px solid var(--danger);
   padding: 10px 14px;
   margin-bottom: 24px;
   font-size: 0.9rem;
-  background: #FBEDE5;
+  background: #FBECEA;
+  border-radius: 0 6px 6px 0;
 }
 
 .day {
@@ -110,23 +133,24 @@ body {
 }
 
 .day__title {
-  font-family: 'Fraunces', serif;
-  font-size: 1.35rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.3rem;
   font-weight: 600;
   margin: 0 0 18px;
   display: flex;
   align-items: baseline;
   gap: 10px;
+  color: var(--navy);
 }
 
 .day__number {
-  color: var(--terracotta);
+  color: var(--teal);
 }
 
 .timeline {
   position: relative;
   padding-left: 24px;
-  border-left: 1px solid #D8CFC0;
+  border-left: 1px solid var(--border);
 }
 
 .activity {
@@ -146,12 +170,12 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--sage);
+  background: var(--teal-light);
 }
 
 .activity__time {
   font-size: 0.8rem;
-  color: var(--sage);
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
   margin-bottom: 3px;
 }
@@ -171,28 +195,30 @@ body {
 
 .activity__location {
   font-size: 0.8rem;
-  color: var(--terracotta);
+  color: var(--teal-dark);
 }
 
 .activity__source {
   font-size: 0.72rem;
-  color: var(--sage);
-  border: 1px solid #D8CFC0;
+  color: var(--navy);
+  background: var(--mint);
+  border: none;
   border-radius: 999px;
-  padding: 1px 8px;
+  padding: 2px 9px;
 }
 
 .outcome-banner {
-  border-left: 3px solid var(--sage);
+  border-left: 3px solid var(--success);
   padding: 10px 14px;
   margin-bottom: 24px;
   font-size: 0.9rem;
-  background: #F0F2EC;
+  background: #E7F5EE;
+  border-radius: 0 6px 6px 0;
 }
 
 .outcome-banner--partial {
-  border-left-color: var(--terracotta);
-  background: #FBEDE5;
+  border-left-color: var(--warning);
+  background: #FBF1E4;
 }
 
 .outcome-banner--failed {
@@ -200,11 +226,11 @@ body {
 }
 
 .empty-state {
-  border: 1px dashed #D8CFC0;
-  border-radius: 4px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
   padding: 28px 20px;
   text-align: center;
-  color: var(--sage);
+  color: var(--muted);
   font-size: 0.9rem;
 }
 
