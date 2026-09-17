@@ -155,6 +155,7 @@ npm run dev   # http://localhost:5173
 ```bash
 curl -N -X POST http://localhost:3000/api/itinerary/stream \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TU_TOKEN" \
   -d '{"prompt": "3 días en Lisboa en octubre, ¿hace frío?"}'
 ```
 

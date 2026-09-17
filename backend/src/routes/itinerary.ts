@@ -1,13 +1,16 @@
 // routes/itinerary.ts
 import dotenv from "dotenv";
+dotenv.config();
+
 import { Router, Request, Response } from "express";
 import { streamItinerary } from "../services/itinerary";
 import { tryParsePartialItinerary } from "../utils/partialJson";
 import { sendEventFunction } from "../utils/sendEvent";
 import { Day, DaySchema } from "../schemas/itinerarySchema.zod";
 import { computeFinalOutcome } from "../rag/computefinaloutcome";
+import { checkJwt } from "../middleware/auth";
+import { updateUserMemory } from "../services/memoryUpdater";
 
-dotenv.config();
 
 const router = Router();
 
@@ -19,7 +22,8 @@ function isDayValid(day: unknown): day is Day {
 // Corta el gasto antes de que el prompt llegue siquiera al LLM.
 const MAX_PROMPT_CHARS = 2000;
 
-router.post("/stream", async (req: Request, res: Response) => {
+router.post("/stream", checkJwt, async (req: Request, res: Response) => {
+  const userId = req.auth?.payload.sub as string;
   const { prompt } = req.body;
 
   if (typeof prompt !== "string" || !prompt.trim()) {
@@ -44,7 +48,7 @@ router.post("/stream", async (req: Request, res: Response) => {
   const sendEvent = sendEventFunction(res);
 
   try {
-    const result = await streamItinerary(prompt);
+    const { stream: result, memoria } = await streamItinerary(prompt, userId);
 
     let fullText = "";
     let daysEmitidos = 0;
@@ -105,6 +109,7 @@ router.post("/stream", async (req: Request, res: Response) => {
     for (const event of events) {
       sendEvent(event.type, event.payload);
     }
+    updateUserMemory(userId, prompt, memoria);
   } catch (err) {
     console.error("Stream error:", err);
     sendEvent("error", {

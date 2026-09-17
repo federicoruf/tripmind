@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
 
 interface DayActivity {
   time: string;
@@ -25,17 +26,23 @@ export function useItineraryStream() {
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<StreamOutcome | null>(null);
 
+  const { getAccessTokenSilently } = useAuth0();
+
   const generate = useCallback(async (prompt: string) => {
     setDays([]);
     setError(null);
     setOutcome(null);
     setLoading(true);
-
+    
     try {
+      const token = await getAccessTokenSilently();
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
       const response = await fetch(`${apiUrl}/api/itinerary/stream`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ prompt }),
       });
 
@@ -69,7 +76,10 @@ export function useItineraryStream() {
             let message = data.message as string;
             // Si el error trae el detalle de qué días fallaron la
             // validación Zod, lo sumamos al mensaje (ej: "día 2").
-            if (Array.isArray(data.invalidDays) && data.invalidDays.length > 0) {
+            if (
+              Array.isArray(data.invalidDays) &&
+              data.invalidDays.length > 0
+            ) {
               const dias = data.invalidDays
                 .map((d: { index: number }) => d.index + 1)
                 .join(", ");

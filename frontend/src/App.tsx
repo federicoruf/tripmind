@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useItineraryStream } from "./useItineraryStream";
 import tripmindIcon from "./assets/icon.svg";
 import "./App.css";
+import { AuthButton } from "./LoginButton";
 
 // Traduce el campo "source" que arma el LLM a una etiqueta legible.
 // Ver system prompt en backend/src/services/itinerary.ts para las
@@ -35,6 +36,7 @@ function App() {
           <h1>TripMind</h1>
         </div>
         <p>Describí el viaje que tenés en mente y armamos el itinerario día por día.</p>
+        <AuthButton />
       </header>
 
       <div className="prompt-box">
