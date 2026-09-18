@@ -1,9 +1,10 @@
 import dotenv from "dotenv";
+dotenv.config();
+import "./instrumentation";
 import cors from "cors";
 import express, { Request, Response } from "express";
 import itinerary from "./routes/itinerary";
 
-dotenv.config();
 
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {

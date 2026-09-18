@@ -5,7 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "test": "tsx --test \"src/**/*.test.ts\"",
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file=.env src/index.ts",
     "dev:railway": "railway run npm run dev",
     "build": "tsc",
     "start": "node dist/index.js",
@@ -19,6 +19,9 @@
   "type": "commonjs",
   "dependencies": {
     "@google/genai": "^2.21.0",
+    "@langfuse/otel": "^5.11.1",
+    "@langfuse/tracing": "^5.11.1",
+    "@opentelemetry/sdk-node": "^0.222.0",
     "best-effort-json-parser": "^1.5.1",
     "chromadb": "^3.5.0",
     "cors": "^2.8.6",

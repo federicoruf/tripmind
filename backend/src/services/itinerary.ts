@@ -1,15 +1,23 @@
 // services/itinerary.ts
-import {
-  GoogleGenAI,
-} from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { itinerarySchema } from "../schemas/itinerarySchema";
 import { Day } from "../schemas/itinerarySchema.zod";
-import { logRequestCost, GeminiUsage, assertBudgetOk } from "../utils/costLogger";
+import {
+  logRequestCost,
+  GeminiUsage,
+  assertBudgetOk,
+} from "../utils/costLogger";
 import { conReintento } from "../utils/geminiRetry";
 import { getMemory } from "../memory";
 import { buildSystemInstruction } from "../utils/buildSystemInstruction";
 import { buildFinalPrompt } from "./promptBuilder";
 import { MAX_OUTPUT_TOKENS_ITINERARY } from "../constans";
+import { updateUserMemory } from "./memoryUpdater";
+import {
+  propagateAttributes,
+  startActiveObservation,
+  startObservation,
+} from "@langfuse/tracing";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -17,71 +25,60 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
  * Generación NO streaming: usada por el eval, tests, o cualquier consumidor
  * que solo necesite el itinerario final ya armado (sin ir emitiendo por SSE).
  */
-export async function generateItinerary(prompt: string, userId: string): Promise<Day[]> {
-  const augmentedPrompt = await buildFinalPrompt(prompt);
-  const memoria = await getMemory(userId);
+export async function generateItinerary(
+  prompt: string,
+  userId: string,
+): Promise<Day[]> {
+  return startActiveObservation("generate-itinerary", async (trace) => {
+    return propagateAttributes({ userId }, async () => {
+      trace.update({ input: prompt });
 
-  assertBudgetOk();
-  const response = await conReintento(() =>
-    ai.models.generateContent({
-      model: process.env.GEMINI_MODEL!,
-      contents: augmentedPrompt,
-      config: {
-        systemInstruction: buildSystemInstruction(memoria),
-        responseMimeType: "application/json",
-        responseSchema: itinerarySchema,
-        maxOutputTokens: MAX_OUTPUT_TOKENS_ITINERARY,
-      },
-    }),
-  );
-  
-  if (response.usageMetadata) {
-    logRequestCost(
-      "gemini-3.1-flash-lite",
-      "generate-itinerary",
-      response.usageMetadata,
-    );
-  }
+      const augmentedPrompt = await buildFinalPrompt(prompt, trace);
+      const memoria = await getMemory(userId);
 
-  const finishReason = response.candidates?.[0]?.finishReason;
-  if (finishReason && finishReason !== "STOP") {
-    console.warn(
-      `[generateItinerary] finishReason="${finishReason}" (no fue "STOP") — ` +
-        `la respuesta puede estar cortada. Prompt: "${prompt}"`,
-    );
-  }
+      assertBudgetOk();
 
-  const rawText = response.text ?? "";
-  if (!rawText.trim()) {
-    console.error(
-      `[generateItinerary] Respuesta vacía del modelo. finishReason="${finishReason}". Prompt: "${prompt}"`,
-    );
-  }
+      const response = await startActiveObservation(
+        "gemini-call",
+        async (gen) => {
+          const res = await conReintento(() =>
+            ai.models.generateContent({
+              model: process.env.GEMINI_MODEL!,
+              contents: augmentedPrompt,
+              config: {
+                systemInstruction: buildSystemInstruction(memoria),
+                responseMimeType: "application/json",
+                responseSchema: itinerarySchema,
+                maxOutputTokens: MAX_OUTPUT_TOKENS_ITINERARY,
+              },
+            }),
+          );
 
-  let parsed: any;
-  try {
-    parsed = JSON.parse(rawText || "{}");
-  } catch (err) {
-    console.error(
-      `[generateItinerary] JSON inválido. finishReason="${finishReason}". ` +
-        `Texto crudo (primeros 500 chars): ${rawText.slice(0, 500)}`,
-    );
-    throw err;
-  }
+          gen.update({
+            model: process.env.GEMINI_MODEL!,
+            input: augmentedPrompt,
+            output: res.text,
+            usageDetails: res.usageMetadata
+              ? {
+                  promptTokens: res.usageMetadata.promptTokenCount,
+                  completionTokens: res.usageMetadata.candidatesTokenCount,
+                  totalTokens: res.usageMetadata.totalTokenCount,
+                }
+              : undefined,
+          });
 
-  if (!Array.isArray(parsed?.days)) {
-    console.error(
-      `[generateItinerary] Sin campo 'days'. finishReason="${finishReason}". ` +
-        `Texto crudo (primeros 500 chars): ${rawText.slice(0, 500)}`,
-    );
-    throw new Error(
-      "El modelo no devolvió un itinerario válido (sin campo 'days')",
-    );
-  }
+          return res;
+        },
+        { asType: "generation" },
+      );
 
-  updateUserMemory(userId, prompt, memoria);
+      const parsed = JSON.parse(response.text ?? "{}");
+      trace.update({ output: parsed.days });
 
-  return parsed.days;
+      updateUserMemory(userId, prompt, memoria);
+      return parsed.days;
+    });
+  });
 }
 
 /**
@@ -89,50 +86,86 @@ export async function generateItinerary(prompt: string, userId: string): Promise
  * Gemini; la route se encarga de ir parseando/emitiendo día por día.
  */
 export async function streamItinerary(prompt: string, userId: string) {
-  const augmentedPrompt = await buildFinalPrompt(prompt);
-  const memoria = await getMemory(userId);
+  return propagateAttributes({ userId }, async () => {
+    const trace = startObservation("stream-itinerary", {
+      input: prompt,
+      userId,
+    });
 
-  assertBudgetOk();
-  // El retry solo cubre el arranque del stream (antes de emitir el primer
-  // chunk). Una vez que empieza a iterar, ya se le mandaron datos parciales
-  // al cliente por SSE y no se puede reintentar sin duplicar contenido.
-  const stream = await conReintento(() =>
-    ai.models.generateContentStream({
-      model: process.env.GEMINI_MODEL!,
-      contents: augmentedPrompt,
-      config: {
-        systemInstruction: buildSystemInstruction(memoria),
-        responseMimeType: "application/json",
-        responseSchema: itinerarySchema,
-        maxOutputTokens: MAX_OUTPUT_TOKENS_ITINERARY,
-      },
-    }),
-  );
+    const augmentedPrompt = await buildFinalPrompt(prompt, trace);
+    const memoria = await getMemory(userId);
 
-  // Gemini manda usageMetadata en cada chunk (acumulativo); nos quedamos con
-  // el del último para loguear el costo real de todo el stream una sola vez.
-  async function* streamConCosto() {
-    let lastUsage: GeminiUsage | undefined;
+    assertBudgetOk();
 
-    for await (const chunk of stream) {
-      if (chunk.usageMetadata) {
-        lastUsage = chunk.usageMetadata as any;
+    const generation = trace.startObservation(
+      "gemini-call",
+      { model: process.env.GEMINI_MODEL!, input: augmentedPrompt },
+      { asType: "generation" },
+    );
+
+    // El retry solo cubre el arranque del stream (antes de emitir el primer
+    // chunk). Una vez que empieza a iterar, ya se le mandaron datos parciales
+    // al cliente por SSE y no se puede reintentar sin duplicar contenido.
+    const stream = await conReintento(() =>
+      ai.models.generateContentStream({
+        model: process.env.GEMINI_MODEL!,
+        contents: augmentedPrompt,
+        config: {
+          systemInstruction: buildSystemInstruction(memoria),
+          responseMimeType: "application/json",
+          responseSchema: itinerarySchema,
+          maxOutputTokens: MAX_OUTPUT_TOKENS_ITINERARY,
+        },
+      }),
+    );
+
+    // Gemini manda usageMetadata en cada chunk (acumulativo); nos quedamos con
+    // el del último para loguear el costo real de todo el stream una sola vez.
+    // el * significa que es una función generadora, que produce resultados de
+    // forma asincrónica (se consume con `for await...of`).
+    async function* streamConCosto() {
+      let lastUsage: GeminiUsage | undefined;
+      let fullText = "";
+
+      try {
+        for await (const chunk of stream) {
+          if (chunk.usageMetadata) lastUsage = chunk.usageMetadata as any;
+          if (chunk.text) fullText += chunk.text;
+          yield chunk;
+        }
+
+        if (lastUsage) {
+          console.log("lastUsage", lastUsage);
+          logRequestCost(
+            "gemini-3.1-flash-lite",
+            "stream-itinerary",
+            lastUsage,
+          );
+          generation.update({
+            output: fullText,
+            usageDetails: {
+              input: lastUsage.promptTokenCount,
+              output: lastUsage.candidatesTokenCount,
+              total: lastUsage.totalTokenCount!,
+            },
+          });
+        } else {
+          console.warn(
+            "[streamItinerary] El stream terminó sin usageMetadata; no se pudo loguear el costo.",
+          );
+        }
+
+        trace.update({ output: fullText });
+      } catch (err) {
+        generation.update({ level: "ERROR" });
+        trace.update({ level: "ERROR" });
+        throw err;
+      } finally {
+        generation.end(); // cierra el span del modelo
+        trace.end(); // cierra el trace completo
       }
-      yield chunk;
     }
 
-    if (lastUsage) {
-      logRequestCost(
-        "gemini-3.1-flash-lite",
-        "stream-itinerary",
-        lastUsage,
-      );
-    } else {
-      console.warn(
-        "[streamItinerary] El stream terminó sin usageMetadata; no se pudo loguear el costo.",
-      );
-    }
-  }
-
-  return { stream: streamConCosto(), memoria };
+    return { stream: streamConCosto(), memoria };
+  });
 }
