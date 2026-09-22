@@ -3,20 +3,14 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { Router, Request, Response } from "express";
-import { streamItinerary } from "../services/itinerary";
-import { tryParsePartialItinerary } from "../utils/partialJson";
+import { runOrchestratedItinerary } from "../orchestrator/graph";
 import { sendEventFunction } from "../utils/sendEvent";
-import { Day, DaySchema } from "../schemas/itinerarySchema.zod";
 import { computeFinalOutcome } from "../rag/computefinaloutcome";
 import { checkJwt } from "../middleware/auth";
-import { updateUserMemory } from "../services/memoryUpdater";
+import { logStep, logError, previewTexto } from "../utils/logger";
 
 
 const router = Router();
-
-function isDayValid(day: unknown): day is Day {
-  return DaySchema.safeParse(day).success;
-}
 
 // Límite generoso para un pedido de viaje en lenguaje natural.
 // Corta el gasto antes de que el prompt llegue siquiera al LLM.
@@ -38,6 +32,11 @@ router.post("/stream", checkJwt, async (req: Request, res: Response) => {
     return;
   }
 
+  logStep("route:itinerary", "Petición recibida", {
+    userId,
+    prompt: previewTexto(prompt),
+  });
+
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -48,70 +47,64 @@ router.post("/stream", checkJwt, async (req: Request, res: Response) => {
   const sendEvent = sendEventFunction(res);
 
   try {
-    const { stream: result, memoria } = await streamItinerary(prompt, userId);
+    // El grafo corre de punta a punta (planificador ⇄ validador, con
+    // reintentos) ANTES de emitir nada por SSE — se decidió no mostrar
+    // intentos intermedios/rechazados, solo el itinerario final. La
+    // memoria del usuario ya se actualiza adentro de runOrchestratedItinerary.
+    const resultado = await runOrchestratedItinerary(prompt, userId);
 
-    let fullText = "";
-    let daysEmitidos = 0;
-    let lastParsedDays: any[] = [];
+    logStep("route:itinerary", "Orquestador finalizó", {
+      intentos: resultado.intentos,
+      valido: resultado.validacionFinal?.valido ?? null,
+      dias: resultado.itinerary.length,
+    });
 
-    for await (const chunk of result) {
-      const text = chunk.text ?? "";
-      fullText += text;
+    // Reusa la misma lógica de decisión que antes usaba el tramo final del
+    // streaming: día por día, valida contra el schema, arma "day" events.
+    // daysEmitidosInicial=0 porque acá no hubo nada emitido todavía.
+    const events = computeFinalOutcome(resultado.itinerary, 0);
+    const doneEvent = events.find((event) => event.type === "done");
+    const otrosEventos = events.filter((event) => event.type !== "done");
 
-      const parsed = tryParsePartialItinerary(fullText);
+    logStep("route:itinerary", "Emitiendo eventos SSE", {
+      cantidad: otrosEventos.length,
+    });
 
-      if (parsed?.days) {
-        for (let i = daysEmitidos; i < parsed.days.length; i++) {
-          const dia = parsed.days[i];
-          const hayDiaSiguiente = i < parsed.days.length - 1;
-          const esCompleto = isDayValid(dia);
-          const eraIgualAntes =
-            lastParsedDays[i] !== undefined &&
-            JSON.stringify(lastParsedDays[i]) === JSON.stringify(dia);
-
-          if (esCompleto && (hayDiaSiguiente || eraIgualAntes)) {
-            sendEvent("day", dia);
-            daysEmitidos++;
-          }
-        }
-        lastParsedDays = parsed.days;
-      }
-    }
-
-    // Al terminar el stream, parseamos la versión final completa
-    let parsedFinal: unknown;
-    try {
-      parsedFinal = JSON.parse(fullText);
-    } catch {
-      // Fatal: no hay nada recuperable, ni siquiera sabemos cuántos días
-      // "reales" hay. Los días ya emitidos por SSE quedan en pantalla,
-      // pero el front tiene que saber que el itinerario NO cerró.
-      sendEvent("error", {
-        stage: "syntax",
-        message: "Respuesta incompleta o inválida del modelo",
-        emittedDays: daysEmitidos,
-      });
-      sendEvent("done", {
-        ok: false,
-        status: "failed",
-        emittedDays: daysEmitidos,
-      });
-      return;
-    }
-
-    // --- Capa 2: estructural, day por day para salvar lo que se pueda ---
-    const rawDays = Array.isArray((parsedFinal as any)?.days)
-      ? (parsedFinal as any).days
-      : [];
-
-    const events = computeFinalOutcome(rawDays, daysEmitidos);
-
-    for (const event of events) {
+    for (const event of otrosEventos) {
       sendEvent(event.type, event.payload);
     }
-    updateUserMemory(userId, prompt, memoria);
+
+    // Si se agotaron los reintentos sin que el validador diera el OK
+    // semántico, el itinerario ya se armó y es estructuralmente válido
+    // (por eso sí se muestra), pero avisamos al usuario del motivo del
+    // rechazo en vez de mostrarlo como un resultado sin observaciones.
+    if (resultado.entregadoSinValidarCompleto) {
+      logStep("route:itinerary", "Itinerario entregado sin validación semántica completa", {
+        motivos: resultado.validacionFinal?.motivos ?? [],
+      });
+      sendEvent("error", {
+        stage: "validation",
+        message:
+          "El itinerario no pasó completamente la revisión de calidad tras los reintentos disponibles.",
+        motivos: resultado.validacionFinal?.motivos ?? [],
+        emittedDays: resultado.itinerary.length,
+      });
+    }
+
+    if (doneEvent) {
+      const status = resultado.entregadoSinValidarCompleto
+        ? ("partial" as const)
+        : doneEvent.payload.status;
+      sendEvent("done", {
+        ...doneEvent.payload,
+        status,
+        ok: status === "complete",
+      });
+    }
+
+    logStep("route:itinerary", "Petición completada");
   } catch (err) {
-    console.error("Stream error:", err);
+    logError("route:itinerary", "Error generando el itinerario", err);
     sendEvent("error", {
       stage: "unexpected",
       message: "Error generando el itinerario",

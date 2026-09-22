@@ -3,6 +3,8 @@ const MAX_PLACE_NAME_LENGTH = 60;
 const OWM_KEY = process.env.OPENWEATHER_API_KEY!;
 const GEOAPIFY_KEY = process.env.GEOAPIFY_API_KEY!;
 
+import { logStep } from "../utils/logger";
+
 interface Coords {
   lat: number;
   lon: number;
@@ -32,7 +34,11 @@ export async function getPlaces(city: string, category: "naturaleza" | "comida" 
   const res = await fetch(url);
   const data = await res.json();
 
-  console.log(`get weather data:  ${data} for city ${city}`);
+  logStep("tool:getPlaces", "Respuesta de Geoapify", {
+    city,
+    category,
+    resultadosCrudos: data.features?.length ?? 0,
+  });
 
   return (data.features ?? [])
     .map((f: any) => ({
@@ -46,8 +52,8 @@ export async function getPlaces(city: string, category: "naturaleza" | "comida" 
 export async function getWeather(city: string, date: string) {
     const coords = await geocodeCity(city);
     if (!coords) return { error: `No se encontró la ciudad "${city}"` };
-   
-    console.log(`get weather: coords ${coords} for city ${city}`);
+
+    logStep("tool:getWeather", "Coordenadas resueltas", { city, coords });
 
     const daysAhead = Math.ceil((new Date(date).getTime() - Date.now()) / 86_400_000);
   

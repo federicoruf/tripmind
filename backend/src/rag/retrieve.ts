@@ -3,6 +3,7 @@ import { ChromaClient, type EmbeddingFunction } from "chromadb";
 
 import { embed } from "./embed.js";
 import { getChromaClient } from "./chromaClient.js";
+import { logStep, previewTexto } from "../utils/logger";
 
 const COLLECTION_NAME = "tripmind_guides";
 
@@ -48,6 +49,16 @@ export async function retrieveContext(
   const metadatas = results.metadatas[0] ?? [];
   const distances = results.distances?.[0] ?? [];
 
+  if (process.env.DEBUG_RAG === "true") {
+    logStep("rag:retrieve", "Distancias crudas de los candidatos (antes de filtrar)", {
+      maxDistance,
+      candidatos: distances.map((d, i) => ({
+        source: metadatas[i]?.source ?? "desconocido",
+        distance: typeof d === "number" ? Number(d.toFixed(4)) : d,
+      })),
+    });
+  }
+
   const seen = new Set<string>();
   const chunks: RetrievedChunk[] = [];
 
@@ -72,9 +83,17 @@ export async function retrieveContext(
   }
 
   if (process.env.DEBUG_RAG === "true") {
-    console.log(`[RAG] query="${query}" -> ${chunks.length} chunks retenidos de ${documents.length} candidatos`);
+    logStep("rag:retrieve", "Búsqueda semántica resuelta", {
+      query: previewTexto(query),
+      chunksRetenidos: chunks.length,
+      candidatos: documents.length,
+    });
     chunks.forEach((c, i) =>
-      console.log(`  [${i}] fuente=${c.source} distancia=${c.distance.toFixed(4)} preview="${c.content.slice(0, 60)}..."`),
+      logStep("rag:retrieve", `Chunk ${i}`, {
+        fuente: c.source,
+        distancia: Number(c.distance.toFixed(4)),
+        preview: c.content.slice(0, 60),
+      }),
     );
   }
 

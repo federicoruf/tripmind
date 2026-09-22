@@ -18,6 +18,7 @@ import {
   startActiveObservation,
   startObservation,
 } from "@langfuse/tracing";
+import { logStep, logWarn, previewTexto } from "../utils/logger";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -28,12 +29,34 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 export async function generateItinerary(
   prompt: string,
   userId: string,
+  options?: {
+    // Prompt "limpio" a guardar en memoria de usuario, cuando `prompt`
+    // difiere del pedido original (ej: un reintento del orquestador del
+    // Paso 10, que le agrega feedback del validador al prompt). Por
+    // defecto es el mismo `prompt`, para no romper llamadas existentes.
+    promptOriginal?: string;
+    // Permite que el orquestador desactive la actualización automática de
+    // memoria por intento, y la haga una sola vez al final del grafo (evita
+    // llamar al LLM de memoria una vez por cada reintento).
+    actualizarMemoria?: boolean;
+  },
 ): Promise<Day[]> {
+  const promptOriginal = options?.promptOriginal ?? prompt;
+  const actualizarMemoria = options?.actualizarMemoria ?? true;
+
+  logStep("service:itinerary", "Generando itinerario", {
+    userId,
+    prompt: previewTexto(prompt),
+  });
+
   return startActiveObservation("generate-itinerary", async (trace) => {
     return propagateAttributes({ userId }, async () => {
       trace.update({ input: prompt });
 
       const augmentedPrompt = await buildFinalPrompt(prompt, trace);
+      logStep("service:itinerary", "Prompt aumentado listo (RAG + tools)", {
+        chars: augmentedPrompt.length,
+      });
       const memoria = await getMemory(userId);
 
       assertBudgetOk();
@@ -75,7 +98,13 @@ export async function generateItinerary(
       const parsed = JSON.parse(response.text ?? "{}");
       trace.update({ output: parsed.days });
 
-      updateUserMemory(userId, prompt, memoria);
+      logStep("service:itinerary", "Itinerario parseado", {
+        dias: parsed.days?.length ?? 0,
+      });
+
+      if (actualizarMemoria) {
+        updateUserMemory(userId, promptOriginal, memoria);
+      }
       return parsed.days;
     });
   });
@@ -135,7 +164,9 @@ export async function streamItinerary(prompt: string, userId: string) {
         }
 
         if (lastUsage) {
-          console.log("lastUsage", lastUsage);
+          logStep("service:itinerary", "Stream finalizado (streamItinerary)", {
+            lastUsage,
+          });
           logRequestCost(
             "gemini-3.1-flash-lite",
             "stream-itinerary",
@@ -150,8 +181,9 @@ export async function streamItinerary(prompt: string, userId: string) {
             },
           });
         } else {
-          console.warn(
-            "[streamItinerary] El stream terminó sin usageMetadata; no se pudo loguear el costo.",
+          logWarn(
+            "service:itinerary",
+            "El stream terminó sin usageMetadata; no se pudo loguear el costo.",
           );
         }
 

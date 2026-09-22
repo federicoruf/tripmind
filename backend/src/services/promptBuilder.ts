@@ -2,6 +2,7 @@ import { LangfuseObservation } from "@langfuse/tracing";
 import { retrieveContext } from "../rag/retrieve";
 import { buildAugmentedPrompt } from "../utils/buildAugmentedPrompt";
 import { resolveToolData } from "./toolLoop";
+import { DEFAULT_MAX_DISTANCE } from "../constans";
 
 /**
  * Arma el prompt final (RAG + tool data) listo para pasarle a generateContent
@@ -9,6 +10,6 @@ import { resolveToolData } from "./toolLoop";
  */
 export async function buildFinalPrompt(prompt: string, trace: LangfuseObservation): Promise<string> {
     const toolData = await resolveToolData(prompt, trace);
-    const chunks = await retrieveContext(prompt, { topK: 4, maxDistance: 0.35 });
+    const chunks = await retrieveContext(prompt, { topK: 4, maxDistance: DEFAULT_MAX_DISTANCE });
     return buildAugmentedPrompt(prompt, chunks, toolData);
   }

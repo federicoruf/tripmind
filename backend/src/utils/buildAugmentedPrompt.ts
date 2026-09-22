@@ -1,4 +1,5 @@
 import { RetrievedChunk } from "../rag/retrieve";
+import { logStep, previewTexto } from "./logger";
 // utils/buildAugmentedPrompt.ts
 
 // ~4 caracteres por token es una aproximación estándar para español/inglés.
@@ -43,7 +44,10 @@ export function buildAugmentedPrompt(
     : "";
 
   if (process.env.DEBUG_RAG === "true") {
-    console.log('RAG RESULT: ', contextBlock, ',  toolBlock: ',toolBlock);
+    logStep("rag:buildAugmentedPrompt", "Prompt aumentado armado", {
+      contexto: previewTexto(contextBlock, 150),
+      toolData: toolData ? previewTexto(toolData, 150) : null,
+    });
   }
   return `<contexto_referencia>
 ${contextBlock}

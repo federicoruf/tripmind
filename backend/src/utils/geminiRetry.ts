@@ -2,6 +2,8 @@
 // Retry centralizado para llamadas a Gemini. Usado por services/itinerary.ts
 // en las 3 llamadas al modelo (tool loop, generación no-streaming y streaming).
 
+import { logStep, logWarn, logError } from "./logger";
+
 function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -25,13 +27,8 @@ function sleep(ms: number) {
     fn: () => Promise<T>,
     intentos = 3,
   ): Promise<T> {
-    console.warn(
-        "[geminiRetry] Debe ejecutar reintetos de 3 intentos máximo (intentos=3).",
-      );
     for (let i = 0; i < intentos; i++) {
-        console.log(
-            "[geminiRetry] intento número " + (i + 1) + "/" + intentos,
-          );
+        logStep("service:geminiRetry", `Llamando a Gemini (intento ${i + 1}/${intentos})`);
       try {
         // Si todo marcha bien, devuelve el resultado.
         return await fn();
@@ -50,15 +47,16 @@ function sleep(ms: number) {
         const esUltimoIntento = i === intentos - 1;
   
         if (!esReintentable || esUltimoIntento) {
-          console.error("[geminiRetry] Error no recuperable:", status, error.message);
+          logError("service:geminiRetry", "Error no recuperable", error);
           throw error;
         }
   
         // Preferí el retryDelay que sugiere Gemini; si no viene, backoff exponencial.
         const segundos = retryDelaySec ?? 2 ** i;
-        console.warn(
-          `[geminiRetry] ${status}. Reintentando en ${segundos}s (intento ${i + 1}/${intentos})...`,
-        );
+        logWarn("service:geminiRetry", `${status}: reintentando en ${segundos}s`, {
+          intento: i + 1,
+          intentos,
+        });
         await sleep(segundos * 1000 + 500); // margen extra
       }
     }
