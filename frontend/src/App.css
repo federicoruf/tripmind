@@ -28,13 +28,48 @@ body {
 }
 
 .app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   max-width: 640px;
   margin: 0 auto;
-  padding: 48px 24px 96px;
+  padding: 48px 24px 32px;
+}
+
+@media (min-width: 768px) {
+  .app {
+    max-width: 760px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .app {
+    max-width: 900px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .app {
+    max-width: 1080px;
+  }
 }
 
 .app__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 20px;
   margin-bottom: 32px;
+}
+
+.app__header-text {
+  min-width: 240px;
+  flex: 1 1 240px;
+}
+
+.app__auth {
+  flex-shrink: 0;
 }
 
 .app__brand {
@@ -45,8 +80,8 @@ body {
 }
 
 .app__icon {
-  width: 40px;
-  height: 40px;
+  width: 116px;
+  height: 116px;
   flex-shrink: 0;
 }
 
@@ -67,10 +102,103 @@ body {
   line-height: 1.5;
 }
 
+.image-uploader {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.image-uploader__trigger {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px 22px;
+  background: var(--card);
+  color: var(--teal-dark);
+  border: 1px solid var(--teal);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.image-uploader__trigger:hover:not(:disabled) {
+  background: var(--mint);
+}
+
+.image-uploader__trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.image-uploader__trigger:focus-visible {
+  outline: 2px solid var(--teal-dark);
+  outline-offset: 2px;
+}
+
+.image-result {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 100%;
+}
+
+.image-result p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--navy);
+  line-height: 1.5;
+}
+
+.image-result__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.image-result__actions button {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: none;
+  background: var(--teal);
+  color: var(--card);
+  transition: background 0.15s ease;
+}
+
+.image-result__actions button:hover {
+  background: var(--teal-dark);
+}
+
+.image-result__actions button:focus-visible {
+  outline: 2px solid var(--teal-dark);
+  outline-offset: 2px;
+}
+
+.image-result__dismiss {
+  background: transparent !important;
+  color: var(--muted) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.image-result__dismiss:hover {
+  background: var(--mint) !important;
+  color: var(--navy) !important;
+}
+
 .prompt-box {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 4px;
   margin-bottom: 40px;
 }
 
@@ -115,6 +243,72 @@ body {
 }
 
 .prompt-box button:focus-visible {
+  outline: 2px solid var(--teal-dark);
+  outline-offset: 2px;
+}
+
+.auth-button__loading {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.auth-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-button--session {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 6px 4px 4px;
+}
+
+.auth-button__avatar {
+  border-radius: 50%;
+  display: block;
+}
+
+.auth-button__name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--navy);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-button__action {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--teal);
+  background: var(--card);
+  color: var(--teal-dark);
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.auth-button__action:hover {
+  background: var(--mint);
+}
+
+.auth-button__action--login {
+  background: var(--teal);
+  color: var(--card);
+  border-color: var(--teal);
+}
+
+.auth-button__action--login:hover {
+  background: var(--teal-dark);
+}
+
+.auth-button__action:focus-visible {
   outline: 2px solid var(--teal-dark);
   outline-offset: 2px;
 }
@@ -243,4 +437,24 @@ body {
 @keyframes rise {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.app__footer {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+ 
+.app__footer a {
+  color: var(--muted);
+  text-decoration: none;
+}
+ 
+.app__footer a:hover {
+  color: var(--teal-dark);
+  text-decoration: underline;
 }

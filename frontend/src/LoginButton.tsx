@@ -5,17 +5,20 @@ export function AuthButton() {
   const { loginWithRedirect, logout, isAuthenticated, isLoading, user } = useAuth0();
 
   if (isLoading) {
-    return <span>Cargando...</span>;
+    return <span className="auth-button__loading">Cargando...</span>;
   }
 
   if (isAuthenticated) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div className="auth-button auth-button--session">
         {user?.picture && (
-          <img src={user.picture} alt={user.name} width={32} height={32} style={{ borderRadius: '50%' }} />
+          <img className="auth-button__avatar" src={user.picture} alt={user.name} width={32} height={32} />
         )}
-        <span>{user?.name}</span>
-        <button onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
+        <span className="auth-button__name">{user?.name}</span>
+        <button
+          className="auth-button__action auth-button__action--logout"
+          onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+        >
           Cerrar sesión
         </button>
       </div>
@@ -24,6 +27,7 @@ export function AuthButton() {
 
   return (
     <button
+      className="auth-button__action auth-button__action--login"
       onClick={() =>
         loginWithRedirect({
           authorizationParams: { connection: 'google-oauth2' },

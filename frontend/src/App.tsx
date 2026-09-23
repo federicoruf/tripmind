@@ -3,6 +3,7 @@ import { useItineraryStream } from "./useItineraryStream";
 import tripmindIcon from "./assets/icon.svg";
 import "./App.css";
 import { AuthButton } from "./LoginButton";
+import { ImageUploader } from "./ImageUploader";
 
 // Traduce el campo "source" que arma el LLM a una etiqueta legible.
 // Ver system prompt en backend/src/services/itinerary.ts para las
@@ -31,13 +32,19 @@ function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <div className="app__brand">
-          <img src={tripmindIcon} alt="" className="app__icon" />
-          <h1>TripMind</h1>
+        <div className="app__header-text">
+          <div className="app__brand">
+            <img src={tripmindIcon} alt="" className="app__icon" />
+            <h1>TripMind</h1>
+          </div>
+          <p>Describí el viaje que tenés en mente y armamos el itinerario día por día.</p>
         </div>
-        <p>Describí el viaje que tenés en mente y armamos el itinerario día por día.</p>
-        <AuthButton />
+        <div className="app__auth">
+          <AuthButton />
+        </div>
       </header>
+
+      <ImageUploader onPlaceConfirmed={(texto) => setPrompt(texto)} />
 
       <div className="prompt-box">
         <textarea
@@ -93,6 +100,13 @@ function App() {
           </div>
         </section>
       ))}
+       <footer className="app__footer">
+        <a href="https://federicorufrancosportfolio.web.app/" target="_blank" rel="noopener noreferrer">
+          Portfolio
+        </a>
+        <span aria-hidden="true">·</span>
+        <a href="mailto:fde.ruf@gmail.com">fde.ruf@gmail.com</a>
+      </footer>
     </div>
   );
 }
