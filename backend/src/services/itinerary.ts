@@ -118,7 +118,6 @@ export async function streamItinerary(prompt: string, userId: string) {
   return propagateAttributes({ userId }, async () => {
     const trace = startObservation("stream-itinerary", {
       input: prompt,
-      userId,
     });
 
     const augmentedPrompt = await buildFinalPrompt(prompt, trace);

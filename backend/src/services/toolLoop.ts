@@ -58,9 +58,9 @@ export async function resolveToolData(prompt: string, trace: LangfuseObservation
         output: calls.length ? calls : response.text,
         usageDetails: response.usageMetadata
           ? {
-              input: response.usageMetadata.promptTokenCount,
-              output: response.usageMetadata.candidatesTokenCount,
-              total: response.usageMetadata.totalTokenCount,
+              input: response.usageMetadata.promptTokenCount ?? 0,
+              output: response.usageMetadata.candidatesTokenCount ?? 0,
+              total: response.usageMetadata.totalTokenCount ?? 0,
             }
           : undefined,
       })
