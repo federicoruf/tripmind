@@ -25,3 +25,11 @@ export const ORCHESTRATOR_MAX_INTENTOS = 2;
 // su propio maxDistance, así que este default solo aplica a otros
 // llamadores de retrieveContext que no lo especifiquen).
 export const DEFAULT_MAX_DISTANCE = 0.6;
+
+// --- Paso 11: identificación de lugar a partir de una imagen ---
+// El resultado es un JSON chico ({ esLugarPuntual, lugar, pais, sugerencias }),
+// no hace falta mucho margen.
+export const MAX_OUTPUT_TOKENS_IMAGE_IDENTIFY = 256;
+// Límite de tamaño de archivo subido (antes de pasar a base64, que pesa ~33% más).
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+export const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
