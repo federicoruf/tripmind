@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useImageIdentify } from "../../../../Downloads/paso11-frontend/paso11-frontend/frontend/src/useImageIdentify";
+import { useImageIdentify } from "./useImageIdentify";
 
 interface Props {
   // Se llama con el texto ya armado (ej. "Kotor, Montenegro") cuando el
