@@ -1,0 +1,41 @@
+info:
+  name: image/identify
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{BASE_URL}}/api/image/identify"
+  headers:
+    - name: Authorization
+      value: Bearer {{TOKEN}}
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "imageBase64": "{{imagenBase64}}",
+        "mimeType": "image/png"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const fs = require('fs');
+
+        const imagenBase64 = fs.readFileSync(
+          'C:/Users/federico/projects/tripmind/paris.png',
+          'base64'
+        );
+
+        bru.setVar('imagenBase64', imagenBase64);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

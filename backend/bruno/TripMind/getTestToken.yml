@@ -1,0 +1,36 @@
+info:
+  name: getTestToken
+  type: http
+  seq: 2
+
+http:
+  method: post
+  url: https://dev-7exve5tcfu0mt1au.us.auth0.com/oauth/token
+  headers:
+    - name: content-type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "client_id": "wlfHvSBsplrs67XyJXu0EctLohVpYiFZ",
+        "client_secret": "8VwUa3FKS6_hLLpNvr4x_0tT8JmvUjulj3iPRN6zMrUrAspbknbTLF9dFK3bH1Bt",
+        "audience": "myTripMind-api-dev",
+        "grant_type": "client_credentials"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const response = res.getBody();
+        console.log('response.data.token', response)
+        bru.setEnvVar("TOKEN", response.access_token);
+
+settings:
+  encodeUrl: false
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
