@@ -33,3 +33,11 @@ export const MAX_OUTPUT_TOKENS_IMAGE_IDENTIFY = 256;
 // Límite de tamaño de archivo subido (antes de pasar a base64, que pesa ~33% más).
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
 export const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+// --- Paso 12: documentos del usuario para RAG privado ---
+// Límites del MVP (ver plan-implementacion-documentos-usuario.md, Fase 0).
+export const MAX_DOC_BYTES = 10 * 1024 * 1024; // 10MB
+export const ALLOWED_DOC_EXTENSIONS = [".pdf", ".md"];
+// Tope de fragmentos por documento, para controlar el costo de embeddings
+// ante un archivo inusualmente largo (ver Paso 4.4 del plan).
+export const MAX_CHUNKS_PER_DOCUMENT = 200;

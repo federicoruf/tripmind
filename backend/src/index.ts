@@ -5,6 +5,7 @@ import cors from "cors";
 import express, { Request, Response } from "express";
 import itinerary from "./routes/itinerary";
 import image from "./routes/image";
+import documents from "./routes/documents";
 
 
 const apiKey = process.env.GEMINI_API_KEY;
@@ -34,6 +35,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/itinerary", itinerary);
 app.use("/api/image", image);
+app.use("/api/documents", documents);
 
 const port = Number(process.env.PORT) || 3000;
 
