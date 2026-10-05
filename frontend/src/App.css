@@ -458,3 +458,184 @@ body {
   color: var(--teal-dark);
   text-decoration: underline;
 }
+
+/* Estilos para la navegación */
+.app__nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.app__nav-button {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.app__nav-button:hover {
+  background: var(--mint);
+  color: var(--navy);
+}
+
+.app__nav-button--active {
+  background: var(--card);
+  color: var(--navy);
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--card);
+}
+
+.app__nav-button:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: -2px;
+}
+
+/* Estilos para el botón de subida de documentos */
+.document-upload {
+  margin-bottom: 20px;
+}
+
+.document-upload__trigger {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px 22px;
+  background: var(--teal);
+  color: var(--card);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.document-upload__trigger:hover:not(:disabled) {
+  background: var(--teal-dark);
+}
+
+.document-upload__trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.document-upload__trigger:focus-visible {
+  outline: 2px solid var(--teal-dark);
+  outline-offset: 2px;
+}
+
+.document-upload__error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #FBECEA;
+  border-radius: 6px;
+}
+
+.document-upload__success {
+  color: var(--success);
+  font-size: 0.85rem;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #E7F5EE;
+  border-radius: 6px;
+}
+
+/* Estilos para la lista de documentos */
+.documents-header {
+  margin-bottom: 20px;
+}
+
+.documents-list {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.documents-list h3 {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 16px;
+  color: var(--navy);
+}
+
+.documents-list__items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.documents-list__item {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.documents-list__item:last-child {
+  margin-bottom: 0;
+}
+
+.documents-list__item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.documents-list__item-filename {
+  font-weight: 500;
+  color: var(--navy);
+  font-size: 0.9rem;
+}
+
+.documents-list__item-status {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.documents-list__item-chunks {
+  font-size: 0.8rem;
+  color: var(--teal-dark);
+}
+
+.documents-list__item-date {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Estilos para el ImageUploader (para mantener consistencia) */
+.image-uploader__trigger {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px 22px;
+  background: var(--teal);
+  color: var(--card);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.image-uploader__trigger:hover:not(:disabled) {
+  background: var(--teal-dark);
+}
+
+.image-uploader__trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.image-uploader__trigger:focus-visible {
+  outline: 2px solid var(--teal-dark);
+  outline-offset: 2px;
+}
