@@ -1,0 +1,37 @@
+info:
+  name: documents/upload
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{BASE_URL}}/api/documents/upload"
+  headers:
+    - name: Authorization
+      value: Bearer {{TOKEN}}
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "fileBase64": "{{fileBase64}}",
+        "filename":"Federico_Rufrancos_Senior_Frontend_ES.pdf"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const fs = require("fs");
+        const path = require("path");
+        const file = path.join(bru.cwd(), "archivo.b64");
+        bru.setVar("fileBase64", fs.readFileSync(file, "utf8").trim());
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
