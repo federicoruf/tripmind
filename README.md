@@ -180,6 +180,41 @@ Un promedio por debajo del umbral configurado (`UMBRAL_MINIMO`) hace fallar el s
 | Backend  | Railway                             |
 | Base de datos vectorial | Chroma Cloud (producción) |
 
+
+## RAG — Métrica de distancia en Chroma (coseno vs L2²)
+
+### El problema
+
+`backend/src/rag/ingest.ts` (script que carga los documentos a Chroma) creaba la colección sin especificar `hnsw:space`, así que Chroma usaba su métrica por defecto: **L2 al cuadrado** (distancia euclidiana al cuadrado).
+`backend/src/rag/retrieve.ts`, en cambio, asumía **similitud coseno** al calcular el umbral de relevancia (`maxDistance`).
+
+La métrica de distancia de una colección de Chroma se fija **al crearla** y no se puede cambiar después: pedirle "coseno" a `getOrCreateCollection` sobre una colección que ya existe con otra métrica no tiene efecto, Chroma simplemente ignora esa parte de la metadata.
+
+Como los embeddings de Gemini vienen normalizados (vector unitario), para vectores normalizados se cumple `L2² = 2 × distancia_coseno`. Un umbral pensado en escala coseno (`maxDistance = 0.5`, pensado como "aceptar similitud ≥ 0.5") terminaba exigiendo, en la métrica real (L2²), una similitud ≥ 0.75 — mucho más estricto de lo previsto. Resultado: **0 chunks recuperados en consultas reales, siempre, sin ningún error visible.**
+
+### La solución
+
+1. `rag/ingest.ts` ahora crea la colección con `metadata: { "hnsw:space": "cosine" }` explícito, igual que `rag/retrieve.ts`.
+2. Como el espacio de una colección existente no se puede migrar in-place, hubo que **borrar y recrear** la colección:
+   ```bash
+   npx tsx backend/scripts/reset-rag-collection.ts   # borra la colección vieja
+   npx tsx backend/src/rag/ingest.ts                 # la recrea con coseno y la repuebla
+   ```
+3. Con la métrica ya corregida, se recalibró `maxDistance` en `backend/src/services/promptBuilder.ts` usando distancias reales (obtenidas con `DEBUG_RAG=true`): los chunks relevantes de este corpus rondan 0.48–0.56, y los no relevantes arrancan recién en ~0.62. Se dejó `maxDistance = 0.6`.
+
+### Cómo recalibrar en el futuro
+
+Si se agregan nuevos documentos al RAG y deja de traer contexto (o trae contexto irrelevante), activar `DEBUG_RAG=true` en el `.env` del backend.
+`rag/retrieve.ts` loguea, en cada consulta, las distancias crudas de **todos** los candidatos —no solo los que pasan el filtro— bajo `[rag:retrieve] Distancias crudas de los candidatos`. Con esos números reales, ajustar `maxDistance` en `services/promptBuilder.ts` en consecuencia — nunca a ciegas.
+
+# Actualización de variables de ambiente
+## Backend
+1- Estas se listan en el archivo `.env` del backend
+2- Al desplegar a prod, se deben actualizar las variables en Railway
+
+## Frontend
+1- Hay que cargar las variables dentro de la sección **Actions secrets and variables**
+
 ## Estado del proyecto / próximos pasos
 
 - [ ] Exportar itinerario a PDF
