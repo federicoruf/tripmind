@@ -29,6 +29,7 @@ app.use(
 // /api/image recibe la imagen en base64, que pesa más que el default de
 // 100kb de express.json(); se le da un límite propio antes del general.
 app.use("/api/image", express.json({ limit: "8mb" }));
+app.use("/api/documents", express.json({ limit: "8mb" }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
