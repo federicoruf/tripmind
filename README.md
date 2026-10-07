@@ -222,6 +222,110 @@ Si se agregan nuevos documentos al RAG y deja de traer contexto (o trae contexto
 - [ ] Correr el eval en GitHub Actions en cada PR
 - [ ] Recibir desde el front archivos a ser ingestados para que luego el usuario cuando realize la solicitud del cronograma, tenga también como referencia los archivos ingestados
 
+## Limpieza automática de documentos vencidos
+
+Los documentos que suben los usuarios (RAG privado) se conservan **30 días**.
+Un job diario borra los vencidos, tanto los fragmentos cifrados en Chroma como
+el registro en Postgres.
+
+### Cómo funciona
+
+```
+GitHub Actions (cron diario)
+        │  POST /internal/cleanup
+        │  header: x-cron-secret
+        ▼
+Backend (Cloud Run) ──► busca documentos con expires_at vencido
+                        ├─ borra sus fragmentos en Chroma
+                        └─ borra el registro en Postgres
+```
+
+- El endpoint `POST /internal/cleanup` **no usa Auth0**: se protege con un
+  secreto propio (`CRON_SECRET`) enviado en el header `x-cron-secret`.
+  La comparación es en tiempo constante (`timingSafeEqual`). Si `CRON_SECRET`
+  no está configurado, el endpoint responde `503` (falla cerrada).
+- Por cada documento se borra primero en Chroma y después en Postgres. Si
+  Chroma falla, el registro se conserva y la siguiente ejecución lo reintenta,
+  para no dejar fragmentos huérfanos.
+- Respuesta: `{ "found": n, "deleted": n, "failed": n }`. Devuelve `500` si
+  `failed > 0`, de modo que la ejecución figure como fallida en GitHub.
+- Los logs solo registran contadores, nunca nombres de archivo ni contenido.
+- Como respaldo, la búsqueda semántica ya ignora fragmentos vencidos
+  (`expires_at > now`), así que un documento vencido nunca llega a un
+  itinerario aunque el job aún no haya corrido.
+
+### Configuración
+
+**1. Generar el secreto**
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+**2. Variable de entorno del backend**
+
+Agregar `CRON_SECRET=<secreto>` en el `.env` local, en Railway (dev y prod) y en Cloud Run. Así de esta manera, se valida que el endpoint está protegido con un secreto valido. Github hara el request con el secreto que tiene guardado y este debe coinciden con el que esta guardado en el backend en Railway.
+
+**3. Secrets en GitHub**
+
+En el repo: *Settings → Secrets and variables → Actions → New repository secret*.
+
+| Secret | Valor |
+|---|---|
+| `BACKEND_URL` | URL del backend en Cloud Run, sin `/` final |
+| `CRON_SECRET` | El mismo valor configurado en el backend |
+
+
+Ambos se guardan como secreto de manera de no exponer en los logs sus valores.
+
+**4. Workflow**
+
+Crear `.github/workflows/cleanup.yml`:
+
+```yaml
+name: cleanup-docs
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # todos los días, 03:00 UTC
+  workflow_dispatch: # permite lanzarlo a mano desde la pestaña Actions
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Borrar documentos vencidos
+        run: |
+          curl -fsS -X POST "${{ secrets.BACKEND_URL }}/internal/cleanup" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
+```
+
+`-f` hace que `curl` falle ante un `4xx/5xx`, y así la ejecución queda en rojo.
+
+### Probarlo
+
+En local (con un documento de prueba cuyo `expires_at` esté en el pasado):
+
+```bash
+curl -X POST http://localhost:3000/internal/cleanup \
+  -H "x-cron-secret: <tu secreto>"
+# {"found":1,"deleted":1,"failed":0}
+```
+
+Sin el header, o con uno incorrecto, responde `401`.
+
+En producción: pestaña *Actions → cleanup-docs → Run workflow*.
+
+### Notas
+
+- Los crons de GitHub Actions corren solo desde la rama por defecto y pueden
+  retrasarse unos minutos.
+- En repos públicos, GitHub desactiva los workflows programados tras 60 días
+  sin actividad en el repo (avisa por email y se reactivan con un clic).
+- Se eligió GitHub Actions en lugar de Cloud Scheduler porque este último exige
+  vincular una cuenta de facturación. El endpoint es el mismo, así que migrar
+  más adelante no requiere cambios de código.
+
 ## Licencia
 
 MIT

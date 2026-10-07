@@ -32,11 +32,35 @@ function App() {
     "3 días en Lisboa, ritmo relajado, comida y arquitectura"
   );
   const [currentView, setCurrentView] = useState<View>("itinerary");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { days, loading: itineraryLoading, error: itineraryError, outcome, generate } = useItineraryStream();
-  const { documents, loading: documentsLoading, error: documentsError, fetchDocuments } = useUserDocuments();
+  const { documents, loading: documentsLoading, error: documentsError, fetchDocuments, deleteDocument } = useUserDocuments();
 
   const handleUploadSuccess = () => {
     fetchDocuments();
+  };
+
+  const handleDeleteClick = (docId: string) => {
+    setDocumentToDelete(docId);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (documentToDelete) {
+      setDeletingId(documentToDelete);
+      setShowDeleteConfirm(false);
+      const success = await deleteDocument(documentToDelete);
+      setDeletingId(null);
+      setDocumentToDelete(null);
+      // If there's an error, it will be shown via the documentsError state
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDocumentToDelete(null);
+    setShowDeleteConfirm(false);
   };
 
   return (
@@ -138,6 +162,10 @@ function App() {
             <DocumentUploadButton onUploadSuccess={handleUploadSuccess} />
           </div>
 
+          <div className="privacy-message">
+            <strong>Privacidad:</strong> Los documentos se guardan por 30 días y pueden ser borrados manualmente. El texto se envía a Gemini para generar el itinerario.
+          </div>
+
           {documentsError && <div className="error-banner">{documentsError}</div>}
 
           {documentsLoading ? (
@@ -159,6 +187,19 @@ function App() {
                       <span className="documents-list__item-date">
                         {new Date(doc.createdAt).toLocaleDateString()}
                       </span>
+                      <span className="documents-list__item-expires">
+                        Expira: {new Date(doc.expiresAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="documents-list__item-actions">
+                      <button 
+                        className="documents-list__item-delete"
+                        onClick={() => handleDeleteClick(doc.id)}
+                        disabled={deletingId === doc.id || documentsLoading}
+                        title="Eliminar documento"
+                      >
+                        🗑️ Eliminar
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -166,6 +207,30 @@ function App() {
             </div>
           )}
         </>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="confirmation-dialog">
+          <div className="confirmation-dialog__content">
+            <h3>¿Estás seguro de que quieres eliminar este documento?</h3>
+            <p>Esta acción no se puede deshacer.</p>
+            <div className="confirmation-dialog__actions">
+              <button 
+                className="confirmation-dialog__cancel"
+                onClick={handleCancelDelete}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="confirmation-dialog__confirm"
+                onClick={handleConfirmDelete}
+                disabled={deletingId !== null}
+              >
+                {deletingId ? "Eliminando..." : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
        <footer className="app__footer">
         <a href="https://federicorufrancosportfolio.web.app/" target="_blank" rel="noopener noreferrer">
