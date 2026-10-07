@@ -7,24 +7,53 @@ import { logStep, previewTexto } from "./logger";
 // querés dejar para el resto del prompt + la respuesta.
 const MAX_CONTEXT_CHARS = 6000;
 
-function truncateChunks(chunks: RetrievedChunk[], maxChars: number): string {
+// Chunk del prompt. `privado: true` marca fragmentos que vienen de documentos
+// del usuario (RAG privado): el prompt que va a Gemini los incluye completos,
+// pero la versión para logs/Langfuse (`redactPrivate`) los reemplaza por un
+// marcador sin contenido.
+export type PromptChunk = RetrievedChunk & { privado?: boolean };
+
+export interface BuildPromptOptions {
+  redactPrivate?: boolean;
+}
+
+function formatFragmento(source: string, content: string): string {
+  return `<fragmento fuente="${source}">\n${content}\n</fragmento>`;
+}
+
+function truncateChunks(
+  chunks: PromptChunk[],
+  maxChars: number,
+  redactPrivate = false,
+): string {
   const parts: string[] = [];
   let usedChars = 0;
 
   for (const c of chunks) {
-    const fragmento = `<fragmento fuente="${c.source}">\n${c.content}\n</fragmento>`;
+    // El largo se mide SIEMPRE con el contenido real, así la versión
+    // redactada trunca exactamente igual que la que se manda a Gemini.
+    const fragmento = formatFragmento(c.source, c.content);
+    const ocultar = redactPrivate && c.privado === true;
+    const visible = ocultar
+      ? formatFragmento(
+          "Tu documento",
+          `[contenido privado omitido · ${c.content.length} caracteres]`,
+        )
+      : fragmento;
 
     if (usedChars + fragmento.length > maxChars) {
       // Si ni el primer chunk entra completo, lo cortamos igual
       // para no dejar el contexto totalmente vacío.
       if (parts.length === 0) {
         const espacioRestante = maxChars - usedChars;
-        parts.push(fragmento.slice(0, espacioRestante) + "\n[...truncado]");
+        parts.push(
+          (ocultar ? visible : fragmento.slice(0, espacioRestante)) + "\n[...truncado]",
+        );
       }
       break;
     }
 
-    parts.push(fragmento);
+    parts.push(visible);
     usedChars += fragmento.length;
   }
 
@@ -32,12 +61,14 @@ function truncateChunks(chunks: RetrievedChunk[], maxChars: number): string {
 }
 export function buildAugmentedPrompt(
   userQuestion: string,
-  chunks: RetrievedChunk[],
+  chunks: PromptChunk[],
   toolData?: string,
+  options: BuildPromptOptions = {},
 ): string {
+  const sinContexto = "(sin contexto relevante encontrado)";
   const contextBlock = chunks.length
-    ? truncateChunks(chunks, MAX_CONTEXT_CHARS)
-    : "(sin contexto relevante encontrado)";
+    ? truncateChunks(chunks, MAX_CONTEXT_CHARS, options.redactPrivate)
+    : sinContexto;
 
   const toolBlock = toolData
     ? `\n\n<datos_tiempo_real>\n${toolData}\n</datos_tiempo_real>`
@@ -45,7 +76,11 @@ export function buildAugmentedPrompt(
 
   if (process.env.DEBUG_RAG === "true") {
     logStep("rag:buildAugmentedPrompt", "Prompt aumentado armado", {
-      contexto: previewTexto(contextBlock, 150),
+      // Siempre la versión redactada: nunca loguear texto de documentos del usuario.
+      contexto: previewTexto(
+        chunks.length ? truncateChunks(chunks, MAX_CONTEXT_CHARS, true) : sinContexto,
+        150,
+      ),
       toolData: toolData ? previewTexto(toolData, 150) : null,
     });
   }

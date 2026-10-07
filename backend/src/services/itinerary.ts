@@ -53,7 +53,11 @@ export async function generateItinerary(
     return propagateAttributes({ userId }, async () => {
       trace.update({ input: prompt });
 
-      const augmentedPrompt = await buildFinalPrompt(prompt, trace);
+      const { prompt: augmentedPrompt, tracePrompt } = await buildFinalPrompt(
+        prompt,
+        trace,
+        userId,
+      );
       logStep("service:itinerary", "Prompt aumentado listo (RAG + tools)", {
         chars: augmentedPrompt.length,
       });
@@ -79,13 +83,14 @@ export async function generateItinerary(
 
           gen.update({
             model: process.env.GEMINI_MODEL!,
-            input: augmentedPrompt,
+            // tracePrompt: sin el texto de los documentos del usuario (Paso 7).
+            input: tracePrompt,
             output: res.text,
             usageDetails: res.usageMetadata
               ? {
-                  promptTokens: res.usageMetadata.promptTokenCount,
-                  completionTokens: res.usageMetadata.candidatesTokenCount,
-                  totalTokens: res.usageMetadata.totalTokenCount,
+                  input: res.usageMetadata.promptTokenCount,
+                  output: res.usageMetadata.candidatesTokenCount,
+                  total: res.usageMetadata.totalTokenCount,
                 }
               : undefined,
           });
@@ -120,14 +125,19 @@ export async function streamItinerary(prompt: string, userId: string) {
       input: prompt,
     });
 
-    const augmentedPrompt = await buildFinalPrompt(prompt, trace);
+    const { prompt: augmentedPrompt, tracePrompt } = await buildFinalPrompt(
+      prompt,
+      trace,
+      userId,
+    );
     const memoria = await getMemory(userId);
 
     assertBudgetOk();
 
     const generation = trace.startObservation(
       "gemini-call",
-      { model: process.env.GEMINI_MODEL!, input: augmentedPrompt },
+      // tracePrompt: sin el texto de los documentos del usuario (Paso 7).
+      { model: process.env.GEMINI_MODEL!, input: tracePrompt },
       { asType: "generation" },
     );
 
