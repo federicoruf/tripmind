@@ -85,7 +85,6 @@ export async function processUserDocumentUpload(
 
     logStep("services:userDocuments", "Procesando documento de usuario", {
       documentId: document.id,
-      filename,
       chunks: chunks.length,
     });
 

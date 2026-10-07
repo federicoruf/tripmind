@@ -25,6 +25,7 @@ import { DEFAULT_MAX_DISTANCE } from "../constans";
 export interface FinalPrompt {
   prompt: string;
   tracePrompt: string;
+  usedPrivate: boolean;
 }
 
 export async function buildFinalPrompt(
@@ -42,5 +43,6 @@ export async function buildFinalPrompt(
     return {
       prompt: buildAugmentedPrompt(prompt, chunks, toolData),
       tracePrompt: buildAugmentedPrompt(prompt, chunks, toolData, { redactPrivate: true }),
+      usedPrivate: userChunks.length > 0,
     };
   }

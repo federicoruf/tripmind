@@ -53,7 +53,7 @@ router.post("/upload", checkJwt, async (req: Request, res: Response) => {
     return;
   }
 
-  logStep("route:documents", "Subida de documento recibida", { userId, filename });
+  logStep("route:documents", "Subida de documento recibida", { userId });
 
   try {
     const buffer = Buffer.from(fileBase64, "base64");

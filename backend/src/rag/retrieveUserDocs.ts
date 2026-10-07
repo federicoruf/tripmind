@@ -120,7 +120,7 @@ export async function retrieveUserContext(
       userId,
       query: previewTexto(query),
       chunksRetenidos: chunks.length,
-      fuentes: chunks.map((c) => c.source),
+      documentosDistintos: new Set(candidatos.map((c) => c.documentId)).size,
     });
   }
 

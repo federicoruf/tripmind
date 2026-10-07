@@ -21,6 +21,7 @@ import {
 import { logStep, logWarn, previewTexto } from "../utils/logger";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+const OUTPUT_PRIVADO_OCULTO = "[output omitido: se usaron documentos privados del usuario]";
 
 /**
  * Generación NO streaming: usada por el eval, tests, o cualquier consumidor
@@ -53,7 +54,7 @@ export async function generateItinerary(
     return propagateAttributes({ userId }, async () => {
       trace.update({ input: prompt });
 
-      const { prompt: augmentedPrompt, tracePrompt } = await buildFinalPrompt(
+      const { prompt: augmentedPrompt, tracePrompt, usedPrivate } = await buildFinalPrompt(
         prompt,
         trace,
         userId,
@@ -85,7 +86,7 @@ export async function generateItinerary(
             model: process.env.GEMINI_MODEL!,
             // tracePrompt: sin el texto de los documentos del usuario (Paso 7).
             input: tracePrompt,
-            output: res.text,
+            output: usedPrivate ? OUTPUT_PRIVADO_OCULTO : res.text,
             usageDetails: res.usageMetadata
               ? {
                   input: res.usageMetadata.promptTokenCount ?? 0,
@@ -101,7 +102,7 @@ export async function generateItinerary(
       );
 
       const parsed = JSON.parse(response.text ?? "{}");
-      trace.update({ output: parsed.days });
+      trace.update({ output: usedPrivate ? OUTPUT_PRIVADO_OCULTO : parsed.days });
 
       logStep("service:itinerary", "Itinerario parseado", {
         dias: parsed.days?.length ?? 0,
