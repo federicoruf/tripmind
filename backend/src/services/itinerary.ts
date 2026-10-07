@@ -88,9 +88,9 @@ export async function generateItinerary(
             output: res.text,
             usageDetails: res.usageMetadata
               ? {
-                  input: res.usageMetadata.promptTokenCount,
-                  output: res.usageMetadata.candidatesTokenCount,
-                  total: res.usageMetadata.totalTokenCount,
+                  input: res.usageMetadata.promptTokenCount ?? 0,
+                  output: res.usageMetadata.candidatesTokenCount ?? 0,
+                  total: res.usageMetadata.totalTokenCount ?? 0,
                 }
               : undefined,
           });
