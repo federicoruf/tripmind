@@ -1,0 +1,33 @@
+info:
+  name: cleanup documents
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{BASE_URL}}/internal/cleanup"
+  headers:
+    - name: x-cron-secret
+      value: "{{X_CRON_SECRET}}"
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: ""
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const fs = require("fs");
+        const path = require("path");
+        const file = path.join(bru.cwd(), "archivo.b64");
+        bru.setVar("fileBase64", fs.readFileSync(file, "utf8").trim());
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

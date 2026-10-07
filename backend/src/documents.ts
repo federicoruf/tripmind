@@ -21,7 +21,7 @@ export interface UserDocument {
   status: DocumentStatus;
   chunkCount: number;
   createdAt: Date;
-  expiresAt: Date;
+  expiresAt: Date;      //el mismo documento lleva guardado el atributo de cuando expira
 }
 
 function mapRow(row: any): UserDocument {

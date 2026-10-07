@@ -1,0 +1,12 @@
+   name: cleanup-docs
+   on:
+     schedule:
+       - cron: "0 3 * * *"   # UTC
+     workflow_dispatch:
+   jobs:
+     cleanup:
+       runs-on: ubuntu-latest
+       steps:
+         - run: |
+             curl -fsS -X POST "${{ secrets.BACKEND_URL }}/internal/cleanup" \
+               -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"

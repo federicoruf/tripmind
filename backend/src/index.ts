@@ -6,7 +6,7 @@ import express, { Request, Response } from "express";
 import itinerary from "./routes/itinerary";
 import image from "./routes/image";
 import documents from "./routes/documents";
-
+import internal from "./routes/internal";
 
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
@@ -37,6 +37,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/itinerary", itinerary);
 app.use("/api/image", image);
 app.use("/api/documents", documents);
+
+// Llamado por Cloud Scheduler, protegido con CRON_SECRET (no con Auth0).
+app.use("/internal", internal);
 
 const port = Number(process.env.PORT) || 3000;
 
