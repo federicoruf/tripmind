@@ -326,6 +326,11 @@ En producción: pestaña *Actions → cleanup-docs → Run workflow*.
   vincular una cuenta de facturación. El endpoint es el mismo, así que migrar
   más adelante no requiere cambios de código.
 
+# Actualizacion de endpoint
+- dentro de la seccion de secrets y varibles, aqui se guarda la varible a la cual el front apuntará al backend: VITE_API_URL
+- Luego dentro secrets tmb tengo guardada la url del backend: BACK_URL. Esta se usa para q el cron actualice el listado de documentos expirados
+
+
 ## Licencia
 
 MIT
