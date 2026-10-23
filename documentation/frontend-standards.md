@@ -43,8 +43,7 @@ Do not add a state-management framework, UI component library, router, or HTTP c
 
 ## Project Structure
 
-Keep presentational components, interaction components, and data-access hooks separate. A component owns rendering and user interaction; a hook owns request lifecycle, token retrieval, and operation state. Do not put direct fetch calls  
-in App.tsx or reusable presentational components.
+Keep presentational components, interaction components, and data-access hooks separate. A component owns rendering and user interaction; a hook owns request lifecycle, token retrieval, and operation state. Do not put direct fetch calls in App.tsx or reusable presentational components.
 
 When the application grows beyond one screen, group related components, hooks, types, and tests by feature rather than creating a large shared-components directory.
 
@@ -59,6 +58,25 @@ When the application grows beyond one screen, group related components, hooks, t
 - Keep browser-visible strings in named constants when they are reused or have product significance. Do not duplicate API fallback messages across hooks.
 - Use comments only for non-obvious constraints, such as SSE framing or a backend limit mirrored on the client.
 
+Example of a typed component boundary:
+
+```tsx
+type DocumentUploadButtonProps = {
+  onUploadSuccess?: (document: DocumentUploadResult) => void;
+  onUploadError?: (message: string) => void;
+};
+
+export function DocumentUploadButton({
+  onUploadSuccess,
+  onUploadError,
+}: DocumentUploadButtonProps) {
+  // Render and interaction logic.
+}
+```
+
+Avoid `any` in props. In particular, callbacks that receive API data must use
+the matching response type rather than an untyped value.
+
 ### Components, State, and Styling
 
 - Use function components and hooks only. Extract a component when conditional markup, accessibility behaviour, or state transitions make a view difficult to read.
@@ -71,6 +89,32 @@ When the application grows beyond one screen, group related components, hooks, t
 - Keep styles scoped by class names. Use global CSS only for resets, typography tokens, and deliberate page-wide rules.
 - Do not use inline styles for static design decisions. Prefer CSS custom properties for repeated colours, spacing, and typography values.
 
+Keep asynchronous state inside the hook that owns the operation:
+
+```tsx
+export function useDocumentUpload() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const upload = useCallback(async (file: File) => {
+    setError(null);
+    setLoading(true);
+    try {
+      // Validate and perform the authenticated request.
+    } catch {
+      setError("Unable to upload the document. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { loading, error, upload };
+}
+```
+
+The component consumes that contract and only renders the corresponding
+loading, error, and success states.
+
 ## API and Authentication Standards
 
 ### Auth0
@@ -80,14 +124,41 @@ When the application grows beyond one screen, group related components, hooks, t
 - Treat unauthenticated and token-acquisition failures as expected UI states; show a useful message or login action rather than leaving a control loading.
 - Keep the redirect URI as the current origin unless an Auth0 configuration change is documented and deployed with the frontend.
 
+```tsx
+const { getAccessTokenSilently } = useAuth0();
+const token = await getAccessTokenSilently();
+
+const response = await fetch(`${apiUrl}/api/documents`, {
+  headers: { Authorization: `Bearer ${token}` },
+});
+```
+
+The token belongs only in the request header. Do not store it in component
+state, local storage, logs, URLs, or error messages.
+
 ### HTTP Requests
 
-- Build API URLs from VITE_API_URL, with http://localhost:3000 only as the local-development fallback. Production builds must use **[h**ttps://tripmind-c2dm.onrender.com](http://localhost:3000/).
+- Build API URLs from VITE_API_URL, with http://localhost:3000 only as the local-development fallback. Production builds must use https://tripmind-c2dm.onrender.com.
 - Send JSON requests with Content-Type: application/json and an Authorization bearer token when the route requires Auth0.
 - Check response.ok before treating a JSON response as successful. Safely handle malformed or empty error bodies and show a product-safe fallback.
 - Mirror backend limits in the UI for fast feedback, but treat backend validation as authoritative.
 - Centralise repeated request behaviour in a shared API helper if hooks repeat token retrieval, URL construction, and error parsing.
 - Do not send user identifiers from the browser. The backend derives identity from the Auth0 token.
+
+Use the same error-handling pattern for JSON endpoints:
+
+```tsx
+const response = await fetch(`${apiUrl}/api/image/identify`, request);
+const payload = await response.json();
+
+if (!response.ok) {
+  throw new Error(payload.error || "Unable to identify the image.");
+}
+
+return payload as ImageIdentifyResult;
+```
+
+Do not assume an error payload always has valid JSON. A shared helper should gracefully fall back to a generic message when parsing fails.
 
 ### SSE Itinerary Streaming
 
@@ -100,6 +171,28 @@ The itinerary client uses fetch rather than EventSource because it must send a P
 - Render partial results honestly and display complete, partial, and failed outcomes distinctly.
 - Never render server data as HTML or use dangerouslySetInnerHTML for itinerary, document, image, or error content.
 
+The parser must retain an incomplete SSE frame for the next network chunk:
+
+```tsx
+buffer += decoder.decode(value, { stream: true });
+const frames = buffer.split("\n\n");
+buffer = frames.pop() ?? "";
+
+for (const frame of frames) {
+  const eventType = frame.match(/^event: (.+)$/m)?.[1];
+  const dataText = frame.match(/^data: (.+)$/m)?.[1];
+  if (!eventType || !dataText) continue;
+
+  const payload: unknown = JSON.parse(dataText);
+  if (eventType === "day" && isDayData(payload)) {
+    setDays((current) => [...current, payload]);
+  }
+  if (eventType === "done") setLoading(false);
+}
+```
+
+Validate and narrow event payloads before relying on them when the hook evolves beyond the currently documented event shapes.
+
 ## Files and User Data
 
 - Validate type and size before converting files to base64. Current limits are 10 MB for .pdf, .md, and .txt documents, and 5 MB for JPEG, PNG, and WebP images.
@@ -107,6 +200,23 @@ The itinerary client uses fetch rather than EventSource because it must send a P
 - Do not log, retain, or expose base64 file data after a request finishes.
 - Display document-retention and deletion information wherever users upload or manage personal documents.
 - Treat server-side validation errors as the source of truth.
+
+```tsx
+const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".md", ".txt"];
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
+if (!ALLOWED_DOCUMENT_EXTENSIONS.includes(extension) || file.size === 0) {
+  setError("Choose a non-empty PDF, Markdown, or text file.");
+  return;
+}
+
+if (file.size > MAX_DOCUMENT_BYTES) {
+  setError("The document exceeds the 10 MB limit.");
+  return;
+}
+```
+
+The authoritative values must remain synchronized with the backend limits.
 
 ## Accessibility and UX
 
@@ -118,6 +228,20 @@ The itinerary client uses fetch rather than EventSource because it must send a P
 - Confirm destructive document deletion, support keyboard dismissal, and return focus to the originating action when the dialog closes.
 - Maintain contrast and touch-target size; never convey state through colour alone.
 
+```tsx
+<button
+  type="button"
+  aria-label={`Delete ${document.filename}`}
+  onClick={() => onDelete(document.id)}
+  disabled={isDeleting}
+>
+  {isDeleting ? "Deleting…" : "Delete"}
+</button>
+
+{error && <p role="alert">{error}</p>}
+{success && <p aria-live="polite">Document uploaded successfully.</p>}
+```
+
 ## Testing Standards
 
 - Place unit tests beside the module they cover and name them *.test.js or *.test.ts once TypeScript test execution is configured.
@@ -125,6 +249,28 @@ The itinerary client uses fetch rather than EventSource because it must send a P
 - Test public behaviour: accepted/rejected files, request construction, loading/error/success states, Auth0 failures, SSE framing, partial outcomes, and document deletion confirmation.
 - Mock Auth0 and network boundaries. Unit tests must not call production services or user data.
 - Run the relevant checks before submitting frontend changes
+
+Example of a deterministic validation test using the existing Node.js test
+runner:
+
+```js
+import assert from "node:assert";
+import { it } from "node:test";
+
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
+it("rejects documents larger than 10 MB", () => {
+  const size = 10 * 1024 * 1024 + 1;
+  assert.ok(size > MAX_DOCUMENT_BYTES);
+});
+```
+
+```bash
+cd frontend
+npm run lint
+npm test
+npm run build
+```
 
 ## Configuration and Deployment
 
