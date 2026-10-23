@@ -27,3 +27,5 @@ dist-ssr
 .env.production
 
 sampleDocs/*
+
+backend/bruno/TripMind/environments/*
