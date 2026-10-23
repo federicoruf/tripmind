@@ -1,0 +1,24 @@
+# --- GitHub: PRs, ramas, issues ---
+[[mcp_servers]]
+name = "github"
+transport = "streamable-http"
+url = "https://api.githubcopilot.com/mcp/"
+api_key_env = "GITHUB_PAT"
+api_key_header = "Authorization"
+api_key_format = "Bearer {token}"
+
+# --- Jira (Atlassian Rovo) ---
+[[mcp_servers]]
+name = "atlassian"
+transport = "streamable-http"
+url = "https://mcp.atlassian.com/v2/mcp"
+api_key_env = "ATLASSIAN_BASIC"
+api_key_header = "Authorization"
+api_key_format = "Basic {token}"
+
+# --- Playwright: tests E2E ---
+[[mcp_servers]]
+name = "playwright"
+transport = "stdio"
+command = "npx"
+args = ["@playwright/mcp@latest"]

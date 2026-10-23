@@ -1,0 +1,656 @@
+openapi: 3.0.0
+info:
+  title: TripMind API
+  version: 1.0.0
+  description: |
+    HTTP API for TripMind, a conversational trip planner.
+
+    Authenticated clients send a natural-language prompt and receive a
+    day-by-day itinerary over Server-Sent Events (SSE). The same API
+    identifies places from photos, and manages private travel documents
+    used as RAG context (PDF, Markdown, or text). A separate internal
+    endpoint removes expired user documents.
+
+    **Authentication**
+    - User-facing routes under `/api` require an Auth0 JWT
+      (`Authorization: Bearer <access_token>`). The authenticated user
+      id is always taken from the token `sub` claim, never from the
+      request body or URL.
+    - `POST /internal/cleanup` is intended for Cloud Scheduler (or
+      equivalent). It is protected with the `x-cron-secret` header
+      (`CRON_SECRET`), not Auth0.
+
+    **Notes**
+    - JSON error payloads use an `error` string. Many of those strings
+      are returned in Spanish, matching the running backend.
+    - JSON request bodies for images and documents use base64 (not
+      multipart). The Express body limit for `/api/image` and
+      `/api/documents` is 8 MB.
+    - User documents expire after 30 days. Each user may keep at most
+      5 active documents. Original files are not stored; only metadata
+      is kept in Neon PostgreSQL, and encrypted chunks live in Chroma.
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development (default `PORT` is 3000)
+  - url: https://tripmind-c2dm.onrender.com
+    description: Production (Render)
+
+tags:
+  - name: Itinerary
+    description: Generate a structured itinerary from a natural-language prompt
+  - name: Documents
+    description: Upload, list, and delete private travel documents for RAG
+  - name: Image
+    description: Identify a place from a user-uploaded photo
+  - name: Internal
+    description: Scheduler-only operations (not called by the SPA)
+
+paths:
+  /api/itinerary/stream:
+    post:
+      tags: [Itinerary]
+      summary: Stream a generated itinerary
+      description: |
+        Runs the LangGraph planner and validator, then streams the
+        **final** itinerary over SSE (intermediate retries are not
+        emitted).
+
+        The HTTP status is `200` and `Content-Type` is
+        `text/event-stream` once generation starts. Validation errors
+        on the JSON body (`prompt` missing or too long) are returned
+        as `400` JSON **before** the SSE headers are written.
+
+        Each SSE frame is:
+
+        ```
+        event: <type>
+        data: <json>
+
+        ```
+
+        Event types:
+
+        | Event | When |
+        | ----- | ---- |
+        | `day` | One validated itinerary day |
+        | `error` | Schema issues, incomplete semantic validation, or unexpected failure |
+        | `done` | Stream finished (`status` is `complete`, `partial`, or `failed`) |
+
+        If the orchestrator exhausts retries without a full semantic
+        pass, days are still emitted and a `validation` error is sent
+        before `done` with `status: partial`.
+      operationId: streamItinerary
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItineraryStreamRequest"
+            example:
+              prompt: "3 days in Lisbon in October, is it cold?"
+      responses:
+        "200":
+          description: SSE stream of itinerary events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Concatenated SSE frames. Parsed `data` payloads match
+                  `ItineraryDayEvent`, `ItineraryErrorEvent`, or
+                  `ItineraryDoneEvent` depending on `event`.
+              examples:
+                dayThenDone:
+                  summary: Successful stream (one day)
+                  value: |
+                    event: day
+                    data: {"day":1,"title":"Arrival and Alfama","activities":[{"time":"09:00","description":"Walk the Alfama district","location":"Lisbon","source":"guide"}]}
+
+                    event: done
+                    data: {"ok":true,"status":"complete","emittedDays":1,"totalDaysEsperados":1}
+        "400":
+          description: Missing, empty, or oversized `prompt` (max 2000 characters)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              examples:
+                missingPrompt:
+                  value:
+                    error: "El campo 'prompt' es requerido y debe ser texto."
+                tooLong:
+                  value:
+                    error: "El prompt es demasiado largo (2001 caracteres, máximo 2000)."
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: |
+            Unexpected generation failure is also reported **inside**
+            the SSE stream (`event: error`) rather than as a JSON body
+            after headers are sent.
+
+  /api/documents:
+    get:
+      tags: [Documents]
+      summary: List the caller's documents
+      description: |
+        Returns non-expired documents for the authenticated user,
+        newest first. Does not include other users' files.
+      operationId: listDocuments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Active documents owned by the caller
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to query document metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: "No se pudieron listar los documentos."
+
+  /api/documents/upload:
+    post:
+      tags: [Documents]
+      summary: Upload a private document
+      description: |
+        Accepts a file as base64 JSON (same pattern as image identify).
+        Allowed extensions: `.pdf`, `.md`, `.txt`. Maximum decoded
+        size: 10 MB. Maximum 5 active documents per user.
+
+        Text is extracted, chunked, embedded, encrypted, and stored in
+        the private Chroma collection. Postgres keeps metadata and
+        expiry only. A successful upload returns `201` with status
+        typically `ready`.
+      operationId: uploadDocument
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentUploadRequest"
+            example:
+              filename: notes.md
+              fileBase64: "IyBMaXNib24KLSBBbGZhbWEK"
+      responses:
+        "201":
+          description: Document processed and registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDocument"
+        "400":
+          description: |
+            Validation or business-rule failure (missing fields,
+            unsupported format, empty file, over 10 MB, document
+            quota, or no extractable text).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              examples:
+                missingFilename:
+                  value:
+                    error: "El campo 'filename' es requerido."
+                missingFile:
+                  value:
+                    error: "El campo 'fileBase64' es requerido."
+                badFormat:
+                  value:
+                    error: "Formato no permitido. Solo se aceptan: .pdf, .md, .txt."
+                tooLarge:
+                  value:
+                    error: "El archivo supera el máximo permitido (10MB)."
+                quota:
+                  value:
+                    error: "Ya alcanzaste el máximo de documentos permitidos. Borrá alguno para subir otro."
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Unexpected processing error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: "No se pudo procesar el documento. Intentá de nuevo."
+
+  /api/documents/{id}:
+    delete:
+      tags: [Documents]
+      summary: Delete a document
+      description: |
+        Deletes Chroma chunks and the Postgres row for `id` if it
+        belongs to the caller. Returns `404` without mutating storage
+        when the document is missing or owned by another user.
+      operationId: deleteDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Document UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Document deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Document not found for this user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: "Documento no encontrado."
+        "500":
+          description: Failed to delete chunks or metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: "No se pudo borrar el documento."
+
+  /api/image/identify:
+    post:
+      tags: [Image]
+      summary: Identify a place from an image
+      description: |
+        Sends the photo to Gemini and returns a structured result.
+        If the image is a recognizable place, `esLugarPuntual` is
+        `true` and `lugar` / `pais` are filled. Otherwise the API
+        returns similar visitable destinations in `sugerencias`.
+
+        The SPA typically turns this result into a prompt for
+        `POST /api/itinerary/stream`. Allowed MIME types:
+        `image/jpeg`, `image/png`, `image/webp`. Maximum decoded
+        size: 5 MB.
+      operationId: identifyImage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageIdentifyRequest"
+            example:
+              mimeType: image/png
+              imageBase64: iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB...
+      responses:
+        "200":
+          description: Identification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageIdentifyResult"
+        "400":
+          description: Missing image, unsupported MIME type, or file over 5 MB
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              examples:
+                missingImage:
+                  value:
+                    error: "El campo 'imageBase64' es requerido."
+                badMime:
+                  value:
+                    error: "Tipo de imagen no soportado. Permitidos: image/jpeg, image/png, image/webp."
+                tooLarge:
+                  value:
+                    error: "La imagen supera el máximo permitido (5MB)."
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Model or parsing failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: "No se pudo procesar la imagen. Intentá de nuevo."
+
+  /internal/cleanup:
+    post:
+      tags: [Internal]
+      summary: Delete expired user documents
+      description: |
+        Used by the daily GitHub Actions / Cloud Scheduler job.
+        For each expired document, Chroma chunks are removed first,
+        then the Postgres row. Failures leave the row in place so
+        the next run can retry (avoids orphaned vectors).
+
+        If any document fails, the HTTP status is `500` and the JSON
+        body still includes `found` / `deleted` / `failed` counts.
+        Configure `CRON_SECRET` or the endpoint responds `503`.
+      operationId: cleanupExpiredDocuments
+      security:
+        - cronSecret: []
+      responses:
+        "200":
+          description: All expired documents were deleted (`failed` is 0)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CleanupResult"
+              example:
+                found: 3
+                deleted: 3
+                failed: 0
+        "401":
+          description: Missing or invalid `x-cron-secret`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: "No autorizado"
+        "500":
+          description: One or more deletes failed, or the job threw
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/CleanupResult"
+                  - $ref: "#/components/schemas/ErrorMessage"
+              examples:
+                partialFailure:
+                  value:
+                    found: 2
+                    deleted: 1
+                    failed: 1
+                unexpected:
+                  value:
+                    error: "Error en la limpieza"
+        "503":
+          description: "`CRON_SECRET` is not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: "Endpoint no disponible"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Auth0 access token for the TripMind API audience
+    cronSecret:
+      type: apiKey
+      in: header
+      name: x-cron-secret
+      description: Shared secret (`CRON_SECRET`) for internal scheduler calls
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid Auth0 JWT
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+            description: Payload from `express-oauth2-jwt-bearer`
+
+  schemas:
+    ErrorMessage:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error (often in Spanish)
+
+    ItineraryStreamRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Natural-language trip request
+          example: "3 days in Lisbon, relaxed pace, food and architecture"
+
+    Activity:
+      type: object
+      required: [time, description]
+      properties:
+        time:
+          type: string
+          minLength: 1
+          example: "09:00"
+        description:
+          type: string
+          minLength: 1
+          example: "Walk the Alfama district"
+        location:
+          type: string
+          example: Lisbon
+        source:
+          type: string
+          description: |
+            Origin of the activity (guide, tool, user document, or
+            model). Empty string when Gemini does not set a source.
+          default: ""
+          example: guide
+
+    ItineraryDay:
+      type: object
+      required: [day, title, activities]
+      properties:
+        day:
+          type: integer
+          minimum: 1
+          example: 1
+        title:
+          type: string
+          minLength: 1
+          example: Arrival and Alfama
+        activities:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Activity"
+
+    Itinerary:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ItineraryDay"
+
+    ItineraryDayEvent:
+      type: object
+      description: JSON in `data` when SSE `event` is `day`
+      allOf:
+        - $ref: "#/components/schemas/ItineraryDay"
+
+    InvalidDay:
+      type: object
+      required: [index, errors]
+      properties:
+        index:
+          type: integer
+          description: Zero-based index in the generated `days` array
+        errors:
+          type: array
+          items:
+            type: string
+
+    ItineraryErrorEvent:
+      type: object
+      description: JSON in `data` when SSE `event` is `error`
+      properties:
+        stage:
+          type: string
+          enum: [schema, validation, unexpected]
+          description: |
+            `schema` — Zod rejected one or more days, or no days were
+            generated. `validation` — semantic validator did not fully
+            pass after retries. `unexpected` — uncaught generation error.
+        message:
+          type: string
+        motivos:
+          type: array
+          items:
+            type: string
+          description: "Present on `stage: validation`"
+        invalidDays:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvalidDay"
+          description: "Present on some `stage: schema` errors"
+        emittedDays:
+          type: integer
+          minimum: 0
+
+    ItineraryDoneEvent:
+      type: object
+      description: JSON in `data` when SSE `event` is `done`
+      required: [ok, status, emittedDays]
+      properties:
+        ok:
+          type: boolean
+          description: "`true` only when `status` is `complete`"
+        status:
+          type: string
+          enum: [complete, partial, failed]
+        emittedDays:
+          type: integer
+          minimum: 0
+        totalDaysEsperados:
+          type: integer
+          minimum: 0
+          description: Omitted when generation produced zero days
+
+    DocumentUploadRequest:
+      type: object
+      required: [filename, fileBase64]
+      properties:
+        filename:
+          type: string
+          minLength: 1
+          description: Original file name; extension must be `.pdf`, `.md`, or `.txt`
+          example: lisbon-notes.md
+        fileBase64:
+          type: string
+          format: byte
+          minLength: 1
+          description: File contents encoded as standard base64
+
+    DocumentStatus:
+      type: string
+      enum: [processing, ready, error]
+
+    UserDocument:
+      type: object
+      required: [id, filename, status, chunkCount, createdAt, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          description: |
+            Auth0 `sub`. Included when listing from Postgres; the
+            upload `201` body does not currently send this field.
+        filename:
+          type: string
+        status:
+          $ref: "#/components/schemas/DocumentStatus"
+        chunkCount:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          description: Typically 30 days after creation
+
+    ImageIdentifyRequest:
+      type: object
+      required: [imageBase64, mimeType]
+      properties:
+        imageBase64:
+          type: string
+          format: byte
+          minLength: 1
+          description: Image bytes as standard base64
+        mimeType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+
+    ImageIdentifyResult:
+      type: object
+      required: [esLugarPuntual, lugar, pais, sugerencias]
+      properties:
+        esLugarPuntual:
+          type: boolean
+          description: Whether the photo is a recognizable specific place
+        lugar:
+          type: string
+          description: Place name when `esLugarPuntual` is true; otherwise empty
+          default: ""
+          example: Torre de Belém
+        pais:
+          type: string
+          description: Country when `esLugarPuntual` is true; otherwise empty
+          default: ""
+          example: Portugal
+        sugerencias:
+          type: array
+          items:
+            type: string
+          description: Alternative destinations when the place is not specific
+          default: []
+          example:
+            - "Algarve, Portugal"
+            - "Amalfi Coast, Italy"
+
+    CleanupResult:
+      type: object
+      required: [found, deleted, failed]
+      properties:
+        found:
+          type: integer
+          minimum: 0
+          description: Expired documents found in this run
+        deleted:
+          type: integer
+          minimum: 0
+          description: Documents fully removed from Chroma and Postgres
+        failed:
+          type: integer
+          minimum: 0
+          description: Documents that could not be deleted (retried next run)
