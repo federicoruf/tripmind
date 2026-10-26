@@ -12,7 +12,8 @@
     "ingest": "tsx src/rag/ingest.ts",
     "ingest:prod": "dotenv -e .env.production -- tsx src/rag/ingest.ts",
     "eval": "tsx src/eval/eval-runner.ts",
-    "db:script:dev": "railway run -e development -s tripmind-db sh -c \"psql \\\"$DATABASE_URL\\\" -f ./script_sql/001_user_documents.sql\""
+    "db:migrate:dev": "node --env-file=.env scripts/migrate.mjs dev",
+    "db:migrate:prod": "node --env-file=../.env.prod scripts/migrate.mjs prod"
   },
   "keywords": [],
   "author": "",

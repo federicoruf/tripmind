@@ -1,32 +1,40 @@
 schema: spec-driven
 
-# Project context (optional)
-# Add only constraints that should guide OpenSpec artifacts and workflows.
-# Include constraints an agent cannot infer by reading the code.
-# Keep general project documentation and discoverable codebase facts out.
-# Example:
-#   context: |
-#     Designs and tasks must cover Windows, macOS, and Linux
-#     Write all artifacts in Spanish
+context: |
+  The project overview is in `README.md` at the repository root.
+  Technical documentation lives in the `documentation/` folder.
+  Before proposing a change, read `README.md` and only the documents in `documentation/` that apply to the task:
+  - api-spec.yml: API endpoints, requests and responses
+  - data.model.md: database schema and data model
+  - backend-standards.md: backend code conventions
+  - frontend-standards.md: frontend code conventions
+  - testing-standards.md: how tests are written and run
+  - deployment.md: environments, deployment and configuration
+  - document-standards.md: how to write and update project documentation
+  Do not copy the content of these documents into artifacts. Reference them by file name.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always state what is out of scope
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - State clearly what is out of scope
+    - List which documents in `documentation/` are affected by the change
+  design:
+    - Decisions must follow backend-standards.md and frontend-standards.md
+    - If the change adds or modifies endpoints, describe the required update to api-spec.yml
+    - If the change touches the database, describe the required update to data.model.md
+  tasks:
+    - Each task must name the file(s) to create or modify
+    - Keep tasks small and ordered, so the project still works after each one
+    - Include a task to write or update tests following testing-standards.md
+    - Include a task to update the affected documents in `documentation/` following document-standards.md
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+operations:
+  apply:
+    guidance:
+      - Before each task, read the documents in `documentation/` that apply to it
+      - Follow the conventions in the standards documents
+      - Do not introduce new libraries if the project already solves the need
+      - Run the tests described in testing-standards.md after each task
+      - Update api-spec.yml and data.model.md when the code changes them
+  archive:
+    guidance:
+      - Confirm that the affected documents in `documentation/` are up to date before archiving

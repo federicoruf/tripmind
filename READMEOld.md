@@ -351,13 +351,13 @@ MIT
 - copiar el token generado y este debe vivir dentro de una variable de windows. Su nombre debe coincidir con el nombre especificado en confg.toml. En el caso de este proyecto se llama: GITHUB_PAT
   - comando: `setx GITHUB_PAT "github_pat_XXXXXXXX"`
 - Reiniciar la cursor o la terminal donde haya configurado esto para que detecte esta variable
-  - con este comando se puede verificar si quedó configurada: if ([Environment]::GetEnvironmentVariable("ATLASSIAN_BASIC","User")) { "guardada" } else { "no guardada" }`
+  - con este comando se puede verificar si quedó configurada: if ([Environment]::GetEnvironmentVariable("GITHUB_PAT","User")) { "guardada" } else { "no guardada" }`
 
 
 ### jira
 - Importante: la variable de ambiente en este caso se guarda en formato base64
 - comando: 
-`$pair = "fde.ruf@gmail.com:ATATT3xFfGF05lOUc1GdsT0aSGep8Yu-cKDw9_rGDJ703lZx-uKaR14RGV2L4qMIIQltCUQoxzhOwO3eJS5-LTF9LzksZRJMpSEAPROTIPmvW2a1t1lctLYNVd2atM92sLOfF2-dcNEPo7iY-oqFwKZD_3xGF4GECElLoHatQ-sGeC3BprdWn_U=43671617"
+`$pair = "fde.ruf@gmail.com:ATATT3xFfGF05lOUc1GdsT0aSGep8Yu-cKDw9_rGDJ703lZx-uKaR14RGV2L4qMIIQltCUQoxzhOwO3eJS5-LTF9LzksZRJMpSEAPROTIPmvW2aaaaaaaaLYNVd2atM92sLOfF2-dcNEPo7iY-oqFwKZD_3xGF4GECElLoHatQ-sGeC3BprdWn_U=43671617"
 $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($pair))
 setx ATLASSIAN_BASIC $b64`
 - verificar que haya quedado guardada: 
