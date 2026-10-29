@@ -41,3 +41,9 @@ export const ALLOWED_DOC_EXTENSIONS = [".pdf", ".md", ".txt"];
 // Tope de fragmentos por documento, para controlar el costo de embeddings
 // ante un archivo inusualmente largo (ver Paso 4.4 del plan).
 export const MAX_CHUNKS_PER_DOCUMENT = 200;
+
+// --- Itinerary History ---
+// Maximo numero de itinerarios guardados por usuario (no vencidos).
+export const MAX_ITINERARIES_PER_USER = 10;
+// Dias de retencion de los itinerarios guardados.
+export const ITINERARY_RETENTION_DAYS = 30;

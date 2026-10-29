@@ -13,6 +13,8 @@ import { buildSystemInstruction } from "../utils/buildSystemInstruction";
 import { buildFinalPrompt } from "./promptBuilder";
 import { MAX_OUTPUT_TOKENS_ITINERARY } from "../constans";
 import { updateUserMemory } from "./memoryUpdater";
+import { saveItinerary } from "./itineraryHistory";
+import { generateSummary } from "./itinerarySummary";
 import {
   propagateAttributes,
   startActiveObservation,
@@ -40,6 +42,10 @@ export async function generateItinerary(
     // memoria por intento, y la haga una sola vez al final del grafo (evita
     // llamar al LLM de memoria una vez por cada reintento).
     actualizarMemoria?: boolean;
+    // UUID único por solicitud de generación para deduplicar guardados.
+    // Si se proporciona, solo un itinerario será guardado por requestId,
+    // incluso si el orquestador hace múltiples reintentos.
+    requestId?: string;
   },
 ): Promise<Day[]> {
   const promptOriginal = options?.promptOriginal ?? prompt;
@@ -111,6 +117,19 @@ export async function generateItinerary(
       if (actualizarMemoria) {
         updateUserMemory(userId, promptOriginal, memoria);
       }
+
+      // Guardar en historial (no bloquear la respuesta si falla)
+      // Usar requestId si está disponible para deduplicar guardados
+      try {
+        const summary = await generateSummary(JSON.stringify(parsed.days), prompt);
+        await saveItinerary(userId, promptOriginal, summary, JSON.stringify(parsed.days), options?.requestId);
+      } catch (saveError) {
+        logWarn("service:itinerary", "No se pudo guardar en historial", {
+          error: saveError instanceof Error ? saveError.message : String(saveError),
+          requestId: options?.requestId,
+        });
+      }
+
       return parsed.days;
     });
   });
@@ -119,8 +138,11 @@ export async function generateItinerary(
 /**
  * Generación streaming: usada por la route SSE. Devuelve el stream crudo de
  * Gemini; la route se encarga de ir parseando/emitiendo día por día.
+ * 
+ * @param requestId - UUID único por solicitud de generación para deduplicar guardados.
+ *                   Si se proporciona, solo un itinerario será guardado por requestId.
  */
-export async function streamItinerary(prompt: string, userId: string) {
+export async function streamItinerary(prompt: string, userId: string, requestId?: string) {
   return propagateAttributes({ userId }, async () => {
     const trace = startObservation("stream-itinerary", {
       input: prompt,
@@ -164,7 +186,7 @@ export async function streamItinerary(prompt: string, userId: string) {
     // forma asincrónica (se consume con `for await...of`).
     async function* streamConCosto() {
       let lastUsage: GeminiUsage | undefined;
-      let fullText = "";
+      let fullText: string = "";
 
       try {
         for await (const chunk of stream) {
@@ -198,6 +220,21 @@ export async function streamItinerary(prompt: string, userId: string) {
         }
 
         trace.update({ output: fullText });
+
+        // Guardar en historial despues de que el stream termina (solo si el JSON es valido)
+        // Usar requestId si está disponible para deduplicar guardados
+        try {
+          const parsed = JSON.parse(fullText);
+          if (parsed.days && Array.isArray(parsed.days)) {
+            const summary = await generateSummary(fullText, prompt);
+            await saveItinerary(userId, prompt, summary, fullText, requestId);
+          }
+        } catch (saveError) {
+          logWarn("service:itinerary", "No se pudo guardar en historial (stream)", {
+            error: saveError instanceof Error ? saveError.message : String(saveError),
+            requestId,
+          });
+        }
       } catch (err) {
         generation.update({ level: "ERROR" });
         trace.update({ level: "ERROR" });

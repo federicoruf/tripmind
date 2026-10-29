@@ -55,13 +55,15 @@ export interface OrchestratorResult {
 export async function runOrchestratedItinerary(
   prompt: string,
   userId: string,
+  requestId?: string,
 ): Promise<OrchestratorResult> {
   logStep("orchestrator:graph", "Iniciando grafo (planificador ⇄ validador)", {
     userId,
     prompt: previewTexto(prompt),
+    requestId,
   });
 
-  const resultado = await grafo.invoke({ prompt, userId });
+  const resultado = await grafo.invoke({ prompt, userId, requestId: requestId ?? "" });
 
   logStep("orchestrator:graph", "Grafo finalizado", {
     intentos: resultado.intentos,

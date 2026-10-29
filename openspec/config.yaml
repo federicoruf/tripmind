@@ -1,6 +1,8 @@
 schema: spec-driven
 
 context: |
+  Language: all artifacts (proposal, design, specs, tasks) must be written in English, regardless of the language used in the conversation or in the user's request.
+  The project overview is in `README.md` at the repository root.
   The project overview is in `README.md` at the repository root.
   Technical documentation lives in the `documentation/` folder.
   Before proposing a change, read `README.md` and only the documents in `documentation/` that apply to the task:
@@ -14,7 +16,10 @@ context: |
   Do not copy the content of these documents into artifacts. Reference them by file name.
 
 rules:
+  specs:
+    - Write all requirements and scenarios in English
   proposal:
+    - Write in English
     - State clearly what is out of scope
     - List which documents in `documentation/` are affected by the change
   design:
@@ -26,6 +31,8 @@ rules:
     - Keep tasks small and ordered, so the project still works after each one
     - Include a task to write or update tests following testing-standards.md
     - Include a task to update the affected documents in `documentation/` following document-standards.md
+  metadata:
+    - Always include the Jira ticket ID in .openspec.yaml as a top-level field (e.g., `jira: PROJ-123`)
 
 operations:
   apply:

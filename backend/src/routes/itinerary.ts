@@ -8,6 +8,7 @@ import { sendEventFunction } from "../utils/sendEvent";
 import { computeFinalOutcome } from "../rag/computefinaloutcome";
 import { checkJwt } from "../middleware/auth";
 import { logStep, logError, previewTexto } from "../utils/logger";
+import { randomUUID } from "crypto";
 
 
 const router = Router();
@@ -37,6 +38,11 @@ router.post("/stream", checkJwt, async (req: Request, res: Response) => {
     prompt: previewTexto(prompt),
   });
 
+  // Generar un requestId único para esta solicitud, para deduplicar guardados
+  // en el historial si el orquestador hace múltiples reintentos
+  const requestId = randomUUID();
+  logStep("route:itinerary", "RequestId generado", { requestId });
+
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -51,7 +57,9 @@ router.post("/stream", checkJwt, async (req: Request, res: Response) => {
     // reintentos) ANTES de emitir nada por SSE — se decidió no mostrar
     // intentos intermedios/rechazados, solo el itinerario final. La
     // memoria del usuario ya se actualiza adentro de runOrchestratedItinerary.
-    const resultado = await runOrchestratedItinerary(prompt, userId);
+    // Se pasa requestId para que todos los reintentos usen el mismo ID y solo
+    // se guarde UN itinerario por solicitud del usuario.
+    const resultado = await runOrchestratedItinerary(prompt, userId, requestId);
 
     logStep("route:itinerary", "Orquestador finalizó", {
       intentos: resultado.intentos,

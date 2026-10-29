@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useItineraryStream } from "./useItineraryStream";
 import { useUserDocuments } from "./useUserDocuments";
+import { ItineraryHistory } from "./components/ItineraryHistory";
 import tripmindIcon from "./assets/icon.svg";
 import "./App.css";
 import { AuthButton } from "./LoginButton";
@@ -25,7 +26,7 @@ const OUTCOME_LABEL: Record<string, string> = {
   failed: "No se pudo generar el itinerario",
 };
 
-type View = "itinerary" | "documents";
+type View = "itinerary" | "documents" | "history";
 
 function App() {
   const [prompt, setPrompt] = useState(
@@ -73,8 +74,10 @@ function App() {
           </div>
           {currentView === "itinerary" ? (
             <p>Describí el viaje que tenés en mente y armamos el itinerario día por día.</p>
-          ) : (
+          ) : currentView === "documents" ? (
             <p>Subí y gestioná tus documentos personales para el RAG privado.</p>
+          ) : (
+            <p>Revisá tus itinerarios guardados y gestioná tu historial de viajes.</p>
           )}
         </div>
         <div className="app__auth">
@@ -95,9 +98,15 @@ function App() {
         >
           Mis Documentos
         </button>
+        <button
+          className={`app__nav-button ${currentView === "history" ? "app__nav-button--active" : ""}`}
+          onClick={() => setCurrentView("history")}
+        >
+          Historial
+        </button>
       </nav>
 
-      {currentView === "itinerary" ? (
+      {currentView === "itinerary" && (
         <>
           <ImageUploader onPlaceConfirmed={(texto) => setPrompt(texto)} />
 
@@ -156,7 +165,9 @@ function App() {
             </section>
           ))}
         </>
-      ) : (
+      )}
+
+      {currentView === "documents" && (
         <>
           <div className="documents-header">
             <DocumentUploadButton onUploadSuccess={handleUploadSuccess} />
@@ -209,7 +220,11 @@ function App() {
         </>
       )}
 
-      {showDeleteConfirm && (
+      {currentView === "history" && (
+        <ItineraryHistory />
+      )}
+
+      {currentView === "documents" && showDeleteConfirm && (
         <div className="confirmation-dialog">
           <div className="confirmation-dialog__content">
             <h3>¿Estás seguro de que quieres eliminar este documento?</h3>

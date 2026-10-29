@@ -20,6 +20,9 @@ export const OrchestratorState = Annotation.Root({
   // --- Entrada, no cambia entre nodos ---
   prompt: Annotation<string>(),
   userId: Annotation<string>(),
+  // UUID único por solicitud de generación para deduplicar guardados en el historial.
+  // Se pasa desde la route y se mantiene constante a través de todos los reintentos.
+  requestId: Annotation<string>(),
 
   // --- Itinerario propuesto en el intento actual ---
   itinerary: Annotation<Day[]>({

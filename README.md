@@ -33,6 +33,7 @@ Typical flows:
 - Upload personal `.pdf`, `.md`, or `.txt` files (max 10 MB, max 5 per user).
   Fragments are encrypted at rest in Chroma and expire after 30 days.
 - Delete a document at any time; a daily job also removes expired ones.
+- View and manage your itinerary history: every generated itinerary is automatically saved and available in the "Historial" tab for 30 days (max 10 itineraries per user).
 
 ## Folder Structure
 
@@ -40,13 +41,19 @@ Typical flows:
 tripmind/
 ├── backend/
 │   ├── Dockerfile                 # Image for Render
-│   ├── script_sql/                # Postgres schema (user_documents)
+│   ├── script_sql/                # Postgres schema (user_documents, user_itineraries)
 │   ├── bruno/TripMind/            # HTTP collection for local/prod API calls
 │   └── src/
 │       ├── index.ts               # Express app and route registration
+│       ├── constans.ts            # Configuration constants
 │       ├── db.ts                  # Postgres pool
 │       ├── documents.ts           # Document metadata access
 │       ├── memory.ts              # Per-user travel memory
+│       ├── services/
+│       │   ├── itineraryHistory.ts # Itinerary history CRUD operations
+│       │   └── itinerarySummary.ts  # Summary generation for saved itineraries
+│       └── routes/
+│           └── itineraryHistory.ts # REST endpoints for itinerary history
 │       ├── middleware/            # Auth0 JWT
 │       ├── routes/                # itinerary, documents, image, internal
 │       ├── services/              # itinerary, RAG prompt, tools, cleanup
@@ -120,6 +127,9 @@ The first request after it wakes up can therefore be slower than usual.
   Browser (React + Vite + Auth0)
         │  JWT
         │  POST /api/itinerary/stream   (SSE)
+        │  GET  /api/itinerary/history
+        │  GET  /api/itinerary/history/:id
+        │  DELETE /api/itinerary/history/:id
         │  POST /api/documents/upload
         │  GET  /api/documents
         │  DELETE /api/documents/:id
@@ -146,11 +156,11 @@ The first request after it wakes up can therefore be slower than usual.
 │  Zod-validated itinerary JSON     │
 └───────────────────────────────────┘
         │
-        ├── PostgreSQL     metadata, user_memory, user_documents
+        ├── PostgreSQL     metadata, user_memory, user_documents, user_itineraries
         ├── ChromaDB       embeddings (public guides + encrypted user chunks)
         └── Gemini         generation, embeddings, image identify, eval judge
 
-GitHub Actions (daily) ──POST /internal/cleanup──► drop expired user documents
+GitHub Actions (daily) ──POST /internal/cleanup──► drop expired user documents and itineraries
 ```
 
 Request path for an itinerary:
