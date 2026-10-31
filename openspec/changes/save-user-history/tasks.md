@@ -53,5 +53,5 @@
 
 ## 11. Production Deployment Preparation
 
-- [ ] 11.1 Apply `backend/script_sql/002_user_itineraries.sql` to production database and verify table exists in Neon prod
-- [ ] 11.2 Verify all acceptance criteria from Jira SCRUM-5 are met through manual and automated testing
+- [x] 11.1 Apply `backend/script_sql/002_user_itineraries.sql` to production database and verify table exists in Neon prod
+- [x] 11.2 Verify all acceptance criteria from Jira SCRUM-5 are met through manual and automated testing

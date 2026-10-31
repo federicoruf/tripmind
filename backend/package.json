@@ -13,7 +13,7 @@
     "ingest:prod": "dotenv -e .env.production -- tsx src/rag/ingest.ts",
     "eval": "tsx src/eval/eval-runner.ts",
     "db:migrate:dev": "node --env-file=.env scripts/migrate.mjs dev",
-    "db:migrate:prod": "node --env-file=../.env.prod scripts/migrate.mjs prod"
+    "db:migrate:prod": "node --env-file=.env.production scripts/migrate.mjs prod"
   },
   "keywords": [],
   "author": "",
