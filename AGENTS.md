@@ -12,5 +12,10 @@
 - Never run `npm run db:migrate:prod`. The user runs it manually.
 - Never edit an applied SQL file. Create a new numbered one.
 
+## Code style rules
+- ALL production code (variables, functions, types, classes, files) MUST be written in English.
+- Comments must be in English.
+- Exception: Test files (e.g., `*.test.ts`, `*.spec.ts`) may contain Spanish descriptions if matching existing project conventions.
+
 ## Project structure
 See the "Folder Structure" section in `README.md`.

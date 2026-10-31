@@ -32,6 +32,9 @@ export async function planificadorNode(
     // La memoria se actualiza una sola vez al final del grafo (Paso 5/7),
     // no en cada intento — evita llamadas redundantes al LLM de memoria.
     actualizarMemoria: false,
+    // requestId para deduplicar guardados en el historial: un mismo requestId
+    // en múltiples reintentos actualizará el mismo registro en vez de crear nuevos.
+    requestId: state.requestId || undefined,
   });
 
   logStep("orchestrator:planificador", "Itinerario generado", {
