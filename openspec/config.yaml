@@ -32,7 +32,7 @@ rules:
     - Include a task to write or update tests following testing-standards.md
     - Include a task to update the affected documents in `documentation/` following document-standards.md
   metadata:
-    - Always include the Jira ticket ID as the first line of proposal.md (e.g., `Jira: PROJ-123`)
+    - "Always include the Jira ticket ID as the first line of proposal.md (e.g., `Jira: PROJ-123`)"
 
 operations:
   apply:
