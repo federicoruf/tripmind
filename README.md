@@ -391,6 +391,26 @@ npx cypress run     # headless
 
 Those commands will fail until Cypress is installed and specs are added.
 
-## License
+#Errors
 
-MIT
+## Error: 
+ Failed to initialize: session/start failed: [internal_error] Layer 'project-toml': _build_config_snapshot() failed
+ Solucion: quedo información sucia en el archivo
+---------------------
+- Prueba: ambas variable hablitadas para ejecutarse dentro de la terminal actual:
+foreach ($n in "GITHUB_PAT","ATLASSIAN_BASIC") {
+>>   $p = [bool][Environment]::GetEnvironmentVariable($n,"Process")
+>>   $u = [bool][Environment]::GetEnvironmentVariable($n,"User")
+>>   "$n -> en esta terminal: $p | guardada en Windows: $u"
+>> }
+
+## Error
+On cron execution, I get this error message:
+22s
+Run curl -fsS -X POST "***/internal/cleanup" \
+curl: (22) The requested URL returned error: 500
+
+Error: Process completed with exit code 22.
+
+SOLUTION: Render server is down, so need to enter the app first get it up.
+

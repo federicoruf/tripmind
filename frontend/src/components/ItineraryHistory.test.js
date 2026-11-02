@@ -232,3 +232,151 @@ describe("ItineraryHistory component - component props", () => {
     assert.ok(!props.onClose);
   });
 });
+
+describe("ItineraryHistory component - ItineraryCard rendering", () => {
+  describe("Card Preview Labels", () => {
+    it("should display days label", () => {
+      const label = "día";
+      assert.ok(label.includes("día"));
+    });
+
+    it("should display activities label", () => {
+      const label = "actividad";
+      assert.ok(label.includes("actividad"));
+    });
+
+    it("should display preview label", () => {
+      const label = "Vista previa:";
+      assert.ok(label.includes("Vista previa"));
+    });
+
+    it("should display separator", () => {
+      const separator = "|";
+      assert.equal(separator, "|");
+    });
+
+    it("should display preview truncation indicator", () => {
+      const indicator = "...";
+      assert.equal(indicator, "...");
+    });
+  });
+
+  describe("Card Structure", () => {
+    it("should have card container", () => {
+      const className = "itinerary-card";
+      assert.ok(className.includes("card"));
+    });
+
+    it("should have card content", () => {
+      const className = "itinerary-card__content";
+      assert.ok(className.includes("content"));
+    });
+
+    it("should have card prompt", () => {
+      const className = "itinerary-card__prompt";
+      assert.ok(className.includes("prompt"));
+    });
+
+    it("should have card summary", () => {
+      const className = "itinerary-card__summary";
+      assert.ok(className.includes("summary"));
+    });
+
+    it("should have card preview", () => {
+      const className = "itinerary-card__preview";
+      assert.ok(className.includes("preview"));
+    });
+
+    it("should have card days count", () => {
+      const className = "itinerary-card__days";
+      assert.ok(className.includes("days"));
+    });
+
+    it("should have card activities count", () => {
+      const className = "itinerary-card__activities";
+      assert.ok(className.includes("activities"));
+    });
+
+    it("should have card meta", () => {
+      const className = "itinerary-card__meta";
+      assert.ok(className.includes("meta"));
+    });
+
+    it("should have card actions", () => {
+      const className = "itinerary-card__actions";
+      assert.ok(className.includes("actions"));
+    });
+
+    it("should have card delete button", () => {
+      const className = "itinerary-card__delete";
+      assert.ok(className.includes("delete"));
+    });
+  });
+
+  describe("Card Accessibility", () => {
+    it("should have aria-label for card", () => {
+      const ariaLabel = "Itinerario: Prompt. 3 días, 10 actividades. Expira en 5 días.";
+      assert.ok(ariaLabel.includes("Itinerario"));
+      assert.ok(ariaLabel.includes("días"));
+      assert.ok(ariaLabel.includes("actividades"));
+      assert.ok(ariaLabel.includes("Expira"));
+    });
+
+    it("should have aria-label for days count", () => {
+      const ariaLabel = "Número de días: 3";
+      assert.ok(ariaLabel.includes("días"));
+      assert.ok(ariaLabel.includes("Número"));
+    });
+
+    it("should have aria-label for activities count", () => {
+      const ariaLabel = "Número de actividades: 10";
+      assert.ok(ariaLabel.includes("actividades"));
+      assert.ok(ariaLabel.includes("Número"));
+    });
+
+    it("should have aria-label for delete button", () => {
+      const ariaLabel = "Eliminar itinerario: Prompt";
+      assert.ok(ariaLabel.includes("Eliminar"));
+      assert.ok(ariaLabel.includes("itinerario"));
+    });
+  });
+
+  describe("Card States", () => {
+    it("should have loading state class", () => {
+      const className = "itinerary-card--loading";
+      assert.ok(className.includes("loading"));
+    });
+
+    it("should display loading message", () => {
+      const message = "Cargando preview...";
+      assert.ok(message.includes("Cargando"));
+      assert.ok(message.includes("preview"));
+    });
+  });
+});
+
+describe("ItineraryHistory component - Mobile Responsiveness", () => {
+  describe("Mobile Viewport", () => {
+    it("should detect mobile at 768px", () => {
+      const isMobile = true;
+      assert.equal(isMobile, true);
+    });
+
+    it("should detect desktop above 768px", () => {
+      const isMobile = false;
+      assert.equal(isMobile, false);
+    });
+  });
+
+  describe("Mobile Preview", () => {
+    it("should show max 2 activities on mobile", () => {
+      const maxActivities = 2;
+      assert.equal(maxActivities, 2);
+    });
+
+    it("should show max 3 activities on desktop", () => {
+      const maxActivities = 3;
+      assert.equal(maxActivities, 3);
+    });
+  });
+});

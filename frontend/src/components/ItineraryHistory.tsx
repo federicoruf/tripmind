@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useItineraryHistory } from "../hooks/useItineraryHistory";
+import { useItineraryHistory, type ItineraryHistoryDetail } from "../hooks/useItineraryHistory";
+import { ItineraryCard, type ItineraryCardCombinedProps, type ItineraryData, formatSummary } from "./ItineraryCard";
 
 interface ItineraryHistoryProps {
   onClose?: () => void;
@@ -7,13 +8,26 @@ interface ItineraryHistoryProps {
 
 type View = "list" | "detail";
 
+// Combined type for list item with decrypted itinerary data
+interface ItineraryListItemWithDetail {
+  id: string;
+  prompt: string;
+  summary: string;
+  itinerary: ItineraryData | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
 export function ItineraryHistory({ onClose }: ItineraryHistoryProps) {
   const [currentView, setCurrentView] = useState<View>("list");
   const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itineraryToDelete, setItineraryToDelete] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  
+  const [itinerariesWithDetail, setItinerariesWithDetail] = useState<ItineraryListItemWithDetail[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
   const {
     itineraries,
     loading,
@@ -22,6 +36,69 @@ export function ItineraryHistory({ onClose }: ItineraryHistoryProps) {
     getItinerary,
     deleteItinerary,
   } = useItineraryHistory();
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Fetch all itinerary details in parallel when itineraries load
+  useEffect(() => {
+    async function loadAllDetails() {
+      if (itineraries.length === 0) {
+        setItinerariesWithDetail([]);
+        return;
+      }
+
+      setLoadingDetails(true);
+      try {
+        // Fetch all details in parallel
+        const detailsPromises = itineraries.map((itinerary) =>
+          getItinerary(itinerary.id)
+        );
+        const details = await Promise.all(detailsPromises);
+
+        // Combine list data with details
+        const combined = itineraries.map((listItem, index) => {
+          const detail = details[index];
+          return {
+            id: listItem.id,
+            prompt: listItem.prompt,
+            summary: listItem.summary,
+            itinerary: detail?.itinerary as ItineraryData | null || null,
+            createdAt: listItem.createdAt,
+            expiresAt: listItem.expiresAt,
+          };
+        });
+
+        setItinerariesWithDetail(combined);
+      } catch (err) {
+        // If any fetch fails, fall back to basic list
+        const combined = itineraries.map((listItem) => ({
+          id: listItem.id,
+          prompt: listItem.prompt,
+          summary: listItem.summary,
+          itinerary: null,
+          createdAt: listItem.createdAt,
+          expiresAt: listItem.expiresAt,
+        }));
+        setItinerariesWithDetail(combined);
+      } finally {
+        setLoadingDetails(false);
+      }
+    }
+
+    if (itineraries.length > 0) {
+      loadAllDetails();
+    } else {
+      setItinerariesWithDetail([]);
+    }
+  }, [itineraries, getItinerary]);
 
   const handleViewItinerary = useCallback((id: string) => {
     setSelectedItineraryId(id);
@@ -56,7 +133,7 @@ export function ItineraryHistory({ onClose }: ItineraryHistoryProps) {
     setShowDeleteConfirm(false);
   }, []);
 
-  // Calcular dias restantes para la expiracion
+  // Calculate days left for expiration
   const getDaysLeft = (expiresAt: string): number => {
     const expiresDate = new Date(expiresAt);
     const now = new Date();
@@ -76,6 +153,85 @@ export function ItineraryHistory({ onClose }: ItineraryHistoryProps) {
     );
   }
 
+  // Show loading state while fetching list
+  if (loading) {
+    return (
+      <div className="itinerary-history">
+        <div className="itinerary-history__header">
+          <h2>Historial de Itinerarios</h2>
+          <div className="itinerary-history__notice">
+            Guardado por 30 días, máximo 10 itinerarios
+          </div>
+        </div>
+        <div className="empty-state">Cargando historial…</div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="itinerary-history">
+        <div className="itinerary-history__header">
+          <h2>Historial de Itinerarios</h2>
+          <div className="itinerary-history__notice">
+            Guardado por 30 días, máximo 10 itinerarios
+          </div>
+        </div>
+        <div className="error-banner">{error}</div>
+      </div>
+    );
+  }
+
+  // Show empty state
+  if (itinerariesWithDetail.length === 0) {
+    return (
+      <div className="itinerary-history">
+        <div className="itinerary-history__header">
+          <h2>Historial de Itinerarios</h2>
+          <div className="itinerary-history__notice">
+            Guardado por 30 días, máximo 10 itinerarios
+          </div>
+        </div>
+        <div className="empty-state">
+          No tenés itinerarios guardados. Generá uno y aparecerá acá.
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while fetching details
+  if (loadingDetails) {
+    return (
+      <div className="itinerary-history">
+        <div className="itinerary-history__header">
+          <h2>Historial de Itinerarios</h2>
+          <div className="itinerary-history__notice">
+            Guardado por 30 días, máximo 10 itinerarios
+          </div>
+        </div>
+        <div className="itinerary-history__list">
+          <ul className="itinerary-history__items">
+            {itinerariesWithDetail.map((itinerary) => (
+              <li key={itinerary.id} className="itinerary-history__item">
+                <div className="itinerary-history__item-content">
+                  <div className="itinerary-history__item-prompt">{itinerary.prompt}</div>
+                  <div className="itinerary-history__item-summary" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                    {formatSummary(itinerary.summary)}
+                  </div>
+                  <div className="itinerary-history__item-meta">
+                    <span>Cargando preview...</span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
+  // Render itinerary cards with structured previews
   return (
     <div className="itinerary-history">
       <div className="itinerary-history__header">
@@ -85,52 +241,28 @@ export function ItineraryHistory({ onClose }: ItineraryHistoryProps) {
         </div>
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
-
-      {loading ? (
-        <div className="empty-state">Cargando historial…</div>
-      ) : itineraries.length === 0 ? (
-        <div className="empty-state">
-          No tenés itinerarios guardados. Generá uno y aparecerá acá.
-        </div>
-      ) : (
-        <div className="itinerary-history__list">
-          <ul className="itinerary-history__items">
-            {itineraries.map((itinerary) => (
-              <li key={itinerary.id} className="itinerary-history__item">
-                <div 
-                  className="itinerary-history__item-content"
-                  onClick={() => handleViewItinerary(itinerary.id)}
-                >
-                  <div className="itinerary-history__item-prompt">{itinerary.prompt}</div>
-                  <div className="itinerary-history__item-summary">{itinerary.summary}</div>
-                  <div className="itinerary-history__item-meta">
-                    <span className="itinerary-history__item-date">
-                      {new Date(itinerary.createdAt).toLocaleDateString()}
-                    </span>
-                    <span className="itinerary-history__item-expires">
-                      Expira en {getDaysLeft(itinerary.expiresAt)} días
-                    </span>
-                  </div>
-                </div>
-                <div className="itinerary-history__item-actions">
-                  <button
-                    className="itinerary-history__item-delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteClick(itinerary.id);
-                    }}
-                    disabled={deletingId === itinerary.id || loading}
-                    title="Eliminar itinerario"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <div className="itinerary-history__list">
+        <ul className="itinerary-history__items">
+          {itinerariesWithDetail.map((itinerary) => (
+            <ItineraryCard
+              key={itinerary.id}
+              id={itinerary.id}
+              prompt={itinerary.prompt}
+              summary={itinerary.summary}
+              itinerary={itinerary.itinerary}
+              createdAt={itinerary.createdAt}
+              expiresAt={itinerary.expiresAt}
+              onClick={() => handleViewItinerary(itinerary.id)}
+              onDelete={(e) => {
+                e.stopPropagation();
+                handleDeleteClick(itinerary.id);
+              }}
+              deletingId={deletingId}
+              isMobile={isMobile}
+            />
+          ))}
+        </ul>
+      </div>
 
       {showDeleteConfirm && (
         <div className="confirmation-dialog">
@@ -138,13 +270,13 @@ export function ItineraryHistory({ onClose }: ItineraryHistoryProps) {
             <h3>¿Estás seguro de que quieres eliminar este itinerario?</h3>
             <p>Esta acción no se puede deshacer.</p>
             <div className="confirmation-dialog__actions">
-              <button 
+              <button
                 className="confirmation-dialog__cancel"
                 onClick={handleCancelDelete}
               >
                 Cancelar
               </button>
-              <button 
+              <button
                 className="confirmation-dialog__confirm"
                 onClick={handleConfirmDelete}
                 disabled={deletingId !== null}
@@ -175,7 +307,7 @@ function ItineraryDetailView({
   getItinerary,
   deletingId,
 }: ItineraryDetailViewProps) {
-  const [itinerary, setItinerary] = useState<any | null>(null);
+  const [itinerary, setItinerary] = useState<ItineraryHistoryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -243,7 +375,7 @@ function ItineraryDetailView({
       <div className="itinerary-detail__prompt">
         <strong>Prompt:</strong> {itinerary.prompt}
       </div>
-      <div className="itinerary-detail__summary">
+      <div className="itinerary-detail__summary" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
         <strong>Resumen:</strong> {itinerary.summary}
       </div>
       <div className="itinerary-detail__meta">
