@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useItineraryHistory, type ItineraryHistoryDetail } from "../hooks/useItineraryHistory";
-import { ItineraryCard, type ItineraryCardCombinedProps, type ItineraryData, formatSummary } from "./ItineraryCard";
+import { ItineraryCard } from "./ItineraryCard";
 
 interface ItineraryHistoryProps {
   onClose?: () => void;
@@ -8,24 +8,12 @@ interface ItineraryHistoryProps {
 
 type View = "list" | "detail";
 
-// Combined type for list item with decrypted itinerary data
-interface ItineraryListItemWithDetail {
-  id: string;
-  prompt: string;
-  summary: string;
-  itinerary: ItineraryData | null;
-  createdAt: string;
-  expiresAt: string;
-}
-
 export function ItineraryHistory({ onClose }: ItineraryHistoryProps) {
   const [currentView, setCurrentView] = useState<View>("list");
   const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itineraryToDelete, setItineraryToDelete] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [itinerariesWithDetail, setItinerariesWithDetail] = useState<ItineraryListItemWithDetail[]>([]);
-  const [loadingDetails, setLoadingDetails] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   const {
@@ -46,59 +34,6 @@ export function ItineraryHistory({ onClose }: ItineraryHistoryProps) {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-
-  // Fetch all itinerary details in parallel when itineraries load
-  useEffect(() => {
-    async function loadAllDetails() {
-      if (itineraries.length === 0) {
-        setItinerariesWithDetail([]);
-        return;
-      }
-
-      setLoadingDetails(true);
-      try {
-        // Fetch all details in parallel
-        const detailsPromises = itineraries.map((itinerary) =>
-          getItinerary(itinerary.id)
-        );
-        const details = await Promise.all(detailsPromises);
-
-        // Combine list data with details
-        const combined = itineraries.map((listItem, index) => {
-          const detail = details[index];
-          return {
-            id: listItem.id,
-            prompt: listItem.prompt,
-            summary: listItem.summary,
-            itinerary: detail?.itinerary as ItineraryData | null || null,
-            createdAt: listItem.createdAt,
-            expiresAt: listItem.expiresAt,
-          };
-        });
-
-        setItinerariesWithDetail(combined);
-      } catch (err) {
-        // If any fetch fails, fall back to basic list
-        const combined = itineraries.map((listItem) => ({
-          id: listItem.id,
-          prompt: listItem.prompt,
-          summary: listItem.summary,
-          itinerary: null,
-          createdAt: listItem.createdAt,
-          expiresAt: listItem.expiresAt,
-        }));
-        setItinerariesWithDetail(combined);
-      } finally {
-        setLoadingDetails(false);
-      }
-    }
-
-    if (itineraries.length > 0) {
-      loadAllDetails();
-    } else {
-      setItinerariesWithDetail([]);
-    }
-  }, [itineraries, getItinerary]);
 
   const handleViewItinerary = useCallback((id: string) => {
     setSelectedItineraryId(id);
@@ -184,7 +119,7 @@ export function ItineraryHistory({ onClose }: ItineraryHistoryProps) {
   }
 
   // Show empty state
-  if (itinerariesWithDetail.length === 0) {
+  if (itineraries.length === 0) {
     return (
       <div className="itinerary-history">
         <div className="itinerary-history__header">
@@ -200,56 +135,25 @@ export function ItineraryHistory({ onClose }: ItineraryHistoryProps) {
     );
   }
 
-  // Show loading state while fetching details
-  if (loadingDetails) {
-    return (
-      <div className="itinerary-history">
-        <div className="itinerary-history__header">
-          <h2>Historial de Itinerarios</h2>
-          <div className="itinerary-history__notice">
-            Guardado por 30 días, máximo 10 itinerarios
-          </div>
-        </div>
-        <div className="itinerary-history__list">
-          <ul className="itinerary-history__items">
-            {itinerariesWithDetail.map((itinerary) => (
-              <li key={itinerary.id} className="itinerary-history__item">
-                <div className="itinerary-history__item-content">
-                  <div className="itinerary-history__item-prompt">{itinerary.prompt}</div>
-                  <div className="itinerary-history__item-summary" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                    {formatSummary(itinerary.summary)}
-                  </div>
-                  <div className="itinerary-history__item-meta">
-                    <span>Cargando preview...</span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    );
-  }
-
   // Render itinerary cards with structured previews
   return (
     <div className="itinerary-history">
       <div className="itinerary-history__header">
         <h2>Historial de Itinerarios</h2>
         <div className="itinerary-history__notice">
-          Guardado por 30 días, máximo 10 itinerarios
+            Guardado por 30 días, máximo 10 itinerarios
         </div>
       </div>
 
       <div className="itinerary-history__list">
         <ul className="itinerary-history__items">
-          {itinerariesWithDetail.map((itinerary) => (
+          {itineraries.map((itinerary) => (
             <ItineraryCard
               key={itinerary.id}
               id={itinerary.id}
               prompt={itinerary.prompt}
               summary={itinerary.summary}
-              itinerary={itinerary.itinerary}
+              itinerary={null}
               createdAt={itinerary.createdAt}
               expiresAt={itinerary.expiresAt}
               onClick={() => handleViewItinerary(itinerary.id)}
@@ -336,10 +240,10 @@ function ItineraryDetailView({
       <div className="itinerary-detail">
         <div className="itinerary-detail__header">
           <button className="itinerary-detail__back" onClick={onBack}>
-            ← Volver al listado
+          ← Volver al listado
           </button>
         </div>
-        <div className="empty-state">Cargando itinerario…</div>
+        <div className="empty-state">Cargando itinerario...</div>
       </div>
     );
   }
@@ -349,7 +253,7 @@ function ItineraryDetailView({
       <div className="itinerary-detail">
         <div className="itinerary-detail__header">
           <button className="itinerary-detail__back" onClick={onBack}>
-            ← Volver al listado
+          ← Volver al listado
           </button>
         </div>
         <div className="error-banner">{error || "Itinerario no encontrado."}</div>
@@ -361,7 +265,7 @@ function ItineraryDetailView({
     <div className="itinerary-detail">
       <div className="itinerary-detail__header">
         <button className="itinerary-detail__back" onClick={onBack}>
-          ← Volver al listado
+        ← Volver al listado
         </button>
         <button
           className="itinerary-detail__delete"

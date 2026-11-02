@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ItineraryHistoryDetail } from "../hooks/useItineraryHistory";
 
 interface ItineraryCardProps {
-  itineraryId: string;
+  id: string;
   prompt: string;
   summary: string;
   createdAt: string;
@@ -201,7 +201,7 @@ export function ItineraryCard(props: ItineraryCardProps | ItineraryCardCombinedP
       setLoading(true);
       setError(false);
       try {
-        const detail = await cardProps.getItinerary(cardProps.itineraryId);
+        const detail = await cardProps.getItinerary(cardProps.id);
         if (detail && detail.itinerary) {
           setItinerary(detail.itinerary as ItineraryData);
         }
@@ -212,7 +212,7 @@ export function ItineraryCard(props: ItineraryCardProps | ItineraryCardCombinedP
       }
     }
     loadItinerary();
-  }, [cardProps.itineraryId, cardProps.getItinerary]);
+  }, [cardProps.id, cardProps.getItinerary]);
 
   if (loading) {
     return (

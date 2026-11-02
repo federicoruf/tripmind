@@ -70,9 +70,6 @@ export function useItineraryHistory() {
   }, [getAccessTokenSilently, isAuthenticated]);
 
   const getItinerary = useCallback(async (itineraryId: string): Promise<ItineraryHistoryDetail | null> => {
-    setLoading(true);
-    setError(null);
-
     try {
       const token = await getAccessTokenSilently();
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -86,18 +83,13 @@ export function useItineraryHistory() {
       });
 
       const data = await response.json();
-      
       if (!response.ok) {
-        setError(data.error || "No se pudo obtener el itinerario.");
         return null;
       }
 
       return data as ItineraryHistoryDetail;
-    } catch (err) {
-      setError("Error de conexión al obtener el itinerario.");
+    } catch {
       return null;
-    } finally {
-      setLoading(false);
     }
   }, [getAccessTokenSilently]);
 
