@@ -10,7 +10,7 @@ interface ItineraryCardProps {
   onClick: () => void;
   onDelete: (e: React.MouseEvent) => void;
   deletingId: string | null;
-  getItinerary: (id: string) => Promise<ItineraryHistoryDetail | null>;
+  getItinerary: (id: string, options?: { silent?: boolean }) => Promise<ItineraryHistoryDetail | null>;
   isMobile?: boolean;
 }
 
@@ -201,7 +201,7 @@ export function ItineraryCard(props: ItineraryCardProps | ItineraryCardCombinedP
       setLoading(true);
       setError(false);
       try {
-        const detail = await cardProps.getItinerary(cardProps.id);
+        const detail = await cardProps.getItinerary(cardProps.id, { silent: true });
         if (detail && detail.itinerary) {
           setItinerary(detail.itinerary as ItineraryData);
         }
@@ -324,7 +324,21 @@ function ItineraryCardInternal({
   // Fallback content if itinerary data is not available
   if (!itinerary || dayCount === 0) {
     return (
-      <li className="itinerary-history__item" onClick={onClick}>
+      <li
+        className="itinerary-history__item"
+        role="button"
+        tabIndex={0}
+        aria-label={`Itinerario: ${prompt}. Expira en ${daysLeft} días.`}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClick();
+        }}
+        onKeyDown={(e) => {
+          if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onClick();
+          }
+        }}
+      >
         <div className="itinerary-history__item-content">
           <div className="itinerary-history__item-summary" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
             {formatSummary(summary)}
@@ -341,7 +355,10 @@ function ItineraryCardInternal({
         <div className="itinerary-history__item-actions">
           <button
             className="itinerary-history__item-delete"
-            onClick={onDelete}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(e);
+            }}
             disabled={deletingId !== null}
             title="Eliminar itinerario"
             aria-label={`Eliminar itinerario: ${prompt}`}
@@ -360,7 +377,7 @@ function ItineraryCardInternal({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
+        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
           onClick();
         }
@@ -385,7 +402,10 @@ function ItineraryCardInternal({
       <div className="itinerary-card__actions">
         <button
           className="itinerary-card__delete"
-          onClick={onDelete}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(e);
+          }}
           disabled={deletingId !== null}
           title="Eliminar itinerario"
           aria-label={`Eliminar itinerario: ${prompt}`}

@@ -4,7 +4,7 @@ import { ItineraryCard, type ItineraryData } from "./ItineraryCard";
 
 interface ItineraryHistoryListProps {
   itineraries: ItineraryHistoryDetail[];
-  getItinerary: (id: string) => Promise<ItineraryHistoryDetail | null>;
+  getItinerary: (id: string, options?: { silent?: boolean }) => Promise<ItineraryHistoryDetail | null>;
   onViewItinerary: (id: string) => void;
   onDelete: (id: string) => void;
   deletingId: string | null;
@@ -28,7 +28,7 @@ export function ItineraryHistoryList({
       await Promise.all(
         itineraries.map(async (itinerary) => {
           try {
-            const detail = await getItinerary(itinerary.id);
+            const detail = await getItinerary(itinerary.id, { silent: true });
             details[itinerary.id] = detail?.itinerary as ItineraryData | null || null;
           } catch {
             details[itinerary.id] = null;

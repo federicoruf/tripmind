@@ -414,7 +414,7 @@ describe("ItineraryCard - Days Left Calculation", () => {
     });
 
     it("should return 0 for today", () => {
-      const today = new Date();
+      const today = new Date(Date.now() + 12 * 60 * 60 * 1000);
       const daysLeft = getDaysLeft(today.toISOString());
       assert.equal(daysLeft, 0);
     });
