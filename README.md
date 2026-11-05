@@ -391,6 +391,34 @@ npx cypress run     # headless
 
 Those commands will fail until Cypress is installed and specs are added.
 
-## License
+#Errors
 
-MIT
+## Error: 
+# Error
+ Failed to initialize: session/start failed: [internal_error] Layer 'project-toml': _build_config_snapshot() failed
+ Solution: wrong content inside the file
+
+---------------------
+- Prueba: ambas variable hablitadas para ejecutarse dentro de la terminal actual:
+- Test: both variables enabled to execute inside current terminal
+foreach ($n in "GITHUB_PAT","ATLASSIAN_BASIC") {
+>>   $p = [bool][Environment]::GetEnvironmentVariable($n,"Process")
+>>   $u = [bool][Environment]::GetEnvironmentVariable($n,"User")
+>>   "$n -> en esta terminal: $p | guardada en Windows: $u"
+>> }
+
+
+#IA
+* Development integrated with Mistral Vibe
+* Add two MPC: Jira and GitHub
+* Both need operating system vars called GITHUB_PAT and ATLASSIAN_BASIC
+
+# Error
+On cron execution, I get this error message:
+Run curl -fsS -X POST "***/internal/cleanup" \
+curl: (22) The requested URL returned error: 500
+
+Error: Process completed with exit code 22.
+
+SOLUTION: Render server is down, so need to enter the app first get it up.
+

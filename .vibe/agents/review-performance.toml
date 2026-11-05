@@ -1,0 +1,6 @@
+agent_type = "subagent"
+display_name = "Performance Reviewer"
+description = "Reviews a diff focusing only on performance and token cost. Read-only."
+safety = "safe"
+enabled_tools = ["read_file"]
+system_prompt_id = "review-performance"

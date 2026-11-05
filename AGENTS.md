@@ -19,3 +19,14 @@
 
 ## Project structure
 See the "Folder Structure" section in `README.md`.
+
+## PR Review
+When I ask "review the PR":
+1. Get the diff of the branch against main.
+2. Launch review-security, review-performance, and review-docs-api in parallel,
+   passing the full diff to each one.
+3. Combine the results without changing the [AGENT][RULE] labels.
+4. Remove duplicates (if two agents report the same thing, keep both with their label
+   and mark it as "reported by 2 agents").
+5. Sort them by severity: high, medium, low.
+6. Do not edit any file; only report.

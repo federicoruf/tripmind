@@ -365,14 +365,3 @@ setx ATLASSIAN_BASIC $b64`
 - También se puede verificar con este comando: 
 `[Environment]::GetEnvironmentVariable("ATLASSIAN_BASIC","User")`
 
-# ERRORES
-- Error: 
- Failed to initialize: session/start failed: [internal_error] Layer 'project-toml': _build_config_snapshot() failed
- Solucion: quedo información sucia en el archivo
----------------------
-- Prueba: ambas variable hablitadas para ejecutarse dentro de la terminal actual:
-foreach ($n in "GITHUB_PAT","ATLASSIAN_BASIC") {
->>   $p = [bool][Environment]::GetEnvironmentVariable($n,"Process")
->>   $u = [bool][Environment]::GetEnvironmentVariable($n,"User")
->>   "$n -> en esta terminal: $p | guardada en Windows: $u"
->> }

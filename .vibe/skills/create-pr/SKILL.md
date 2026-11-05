@@ -32,18 +32,28 @@ Follow these steps in order. Stop and ask me if any step is unclear.
 - Do not include `.env`, logs, or any file with secrets.
 
 ## 4. Plan, commit and push
-- Before committing, group the changed files by purpose. Example groups:
-  database/migrations, backend services, routes, frontend components,
-  tests, docs, OpenSpec files.
-- Show me the plan: a list of commits, each with its message and the
-  files it includes. Wait for my confirmation.
+- Run `git diff --name-only` and `git status --short` to list all changes.
+- Group the files by LAYER, not by feature. Use these groups, in this order,
+  skipping the ones with no files:
+  1. database / migrations
+  2. backend (services, routes, middleware)
+  3. frontend
+  4. docs and OpenSpec files
+  5. config / chore
+- Tests go in the same commit as the code they test.
+- Show me the plan: each commit with its message and files.
+  Wait for my confirmation. Do not run `git commit` before I confirm.
 - Create one commit per group using `git add <specific files>`.
   Never use `git add .`, `git add -A` or `git commit -a`.
 - Commit message format: `type: short summary` (feat, fix, docs, test,
   chore), maximum 72 characters.
-- Keep tests in the same commit as the code they test.
-- Do NOT put everything in a single commit, unless all the changes
-  have one single purpose or there are fewer than 3 changed files.
+- Only exception: if there are fewer than 3 changed files, one commit
+  is fine. Having a single feature or a single OpenSpec change is NOT
+  a reason to use one commit.
+- Before pushing, run `git log --oneline main..HEAD`.
+  If there is only 1 commit and there were 3 or more changed files,
+  run `git reset --soft main`, `git reset`, and redo the commits
+  following the plan.
 - Push the branch.
 
 ## 5. Open the PR (GitHub MCP)

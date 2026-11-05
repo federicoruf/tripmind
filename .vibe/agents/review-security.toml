@@ -1,0 +1,5 @@
+agent_type = "subagent"
+display_name = "Security Reviewer"
+description = "Reviews a diff for security issues only. Read-only."
+enabled_tools = ["read_file"]
+system_prompt_id = "review-security"
