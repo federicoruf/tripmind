@@ -1,335 +1,248 @@
 # TripMind
 
-TripMind is a conversational trip planner. You describe a trip in natural language
-(*"3 days in Lisbon, relaxed pace, food and architecture"*) and the app builds a
-day-by-day itinerary in the browser, combining:
+**An AI travel planner that turns one sentence into a day-by-day itinerary, and tells you where every suggestion came from.**
 
-- **Your own travel documents** (private RAG over notes, PDFs, Markdown, or text
-  you upload).
-- **Shared travel guides** (public RAG over ingested guides).
-- **Verified live data** (weather and places from external APIs).
-- **The language model's general knowledge**, with an explicit `source` on each
-  activity so it is clear what came from a guide, a tool, a user document, or
-  the model itself.
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](#tech-stack)
+[![React](https://img.shields.io/badge/React_19-20232A?logo=react&logoColor=61DAFB)](#tech-stack)
+[![Node.js](https://img.shields.io/badge/Node.js-339933?logo=nodedotjs&logoColor=white)](#tech-stack)
+[![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?logo=langchain&logoColor=white)](#tech-stack)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](#tech-stack)
+[![Gemini](https://img.shields.io/badge/Gemini-8E75B2?logo=googlegemini&logoColor=white)](#tech-stack)
 
-The stack is Node.js / TypeScript on the backend and React / Vite on the
-frontend. Auth is handled with Auth0. Generation is orchestrated with LangGraph
-(planner + validator), streamed to the UI over Server-Sent Events (SSE), and
-validated against a Zod schema.
+**Live demo:** [mytripmind-io.web.app](https://mytripmind-io.web.app)
+*(the backend runs on Render's free tier, so the first request may take ~30–60 s while it wakes up)*
 
-## Purpose
+---
 
-TripMind exists to turn a vague travel request into a structured itinerary
-without asking the user to fill a long form.
+## What it does
 
-It is also a practical LLM application: tool calling, retrieval-augmented
-generation, structured JSON output, streaming, user memory, private document
-ingestion, and cost control (budget cap, retries with backoff, token ceilings).
+Type something like *"3 days in Lisbon in October, relaxed pace, food and architecture"*. TripMind builds an itinerary and streams it to the browser one day at a time.
 
-Typical flows:
+To build it, TripMind uses four sources and labels each activity with the one it came from:
 
-- Log in, type a prompt, and watch days appear as the itinerary is assembled.
-- Upload a photo of a place so the model can identify it and suggest a trip.
-- Upload personal `.pdf`, `.md`, or `.txt` files (max 10 MB, max 5 per user).
-  Fragments are encrypted at rest in Chroma and expire after 30 days.
-- Delete a document at any time; a daily job also removes expired ones.
-- View and manage your itinerary history: every generated itinerary is automatically saved and available in the "Historial" tab for 30 days (max 10 itineraries per user).
+| Source | How it's used |
+| --- | --- |
+| 🗂️ **Your own documents** | Upload PDFs, Markdown or text notes. They're searched with private, encrypted RAG. |
+| 📚 **Curated travel guides** | Shared guides, searched with public RAG. |
+| 🌦️ **Live data** | Weather (OpenWeatherMap) and places (Geoapify), fetched through LLM tool calling. |
+| 🧠 **Model knowledge** | Gemini fills the gaps and says that it did. |
 
-## Folder Structure
+Other features:
 
-```
-tripmind/
-├── backend/
-│   ├── Dockerfile                 # Image for Render
-│   ├── script_sql/                # Postgres schema (user_documents, user_itineraries)
-│   ├── bruno/TripMind/            # HTTP collection for local/prod API calls
-│   └── src/
-│       ├── index.ts               # Express app and route registration
-│       ├── constans.ts            # Configuration constants
-│       ├── db.ts                  # Postgres pool
-│       ├── documents.ts           # Document metadata access
-│       ├── memory.ts              # Per-user travel memory
-│       ├── services/
-│       │   ├── itineraryHistory.ts # Itinerary history CRUD operations
-│       │   └── itinerarySummary.ts  # Summary generation for saved itineraries
-│       └── routes/
-│           └── itineraryHistory.ts # REST endpoints for itinerary history
-│       ├── middleware/            # Auth0 JWT
-│       ├── routes/                # itinerary, documents, image, internal
-│       ├── services/              # itinerary, RAG prompt, tools, cleanup
-│       ├── orchestrator/          # LangGraph planner ↔ validator
-│       ├── rag/                   # ingest, retrieve, chunk, embed, Chroma
-│       ├── tools/                 # get_weather / get_places declarations
-│       ├── schemas/               # Gemini + Zod schemas
-│       ├── eval/                  # Golden dataset and LLM-as-judge runner
-│       └── utils/                 # SSE, crypto, cost, retries, logging
-├── frontend/
-│   ├── src/                       # React UI, hooks, and unit tests
-│   └── firebase.json              # Firebase Hosting
-├── .github/workflows/             # Cleanup cron + Firebase Hosting
-├── openspec/                      # Spec-driven change history
-├── start.sh                       # Local helper: backend + frontend
-└── README.md
-```
+- **📷 Plan from a photo.** Upload a picture of a place. The model identifies it and suggests a trip.
+- **💾 Itinerary history.** Every itinerary is saved automatically and kept for 30 days (up to 10 per user).
+- **🧩 Travel memory.** The app learns your preferences across sessions and uses them in later plans.
+- **🔐 Privacy by design.** Original files are never stored. Document fragments are encrypted at rest and expire after 30 days, and you can delete them at any time.
 
-## Technologies
+## What this project demonstrates
 
-| Area                    | Technology |
-| ----------------------- | ---------- |
-| LLM                     | Gemini (`@google/genai`), model via `GEMINI_MODEL` |
-| Backend                 | Node.js, Express, TypeScript |
-| Orchestration           | LangGraph (planner node + validator node) |
-| Streaming               | Server-Sent Events (SSE) |
-| Output validation       | Zod + Gemini `responseSchema` |
-| RAG                     | ChromaDB (cosine space) + Gemini embeddings |
-| Relational data         | PostgreSQL (`pg`) |
-| Auth                    | Auth0 (SPA + JWT on the API) |
-| Frontend                | React 19, Vite, Auth0 React SDK |
-| External APIs           | OpenWeatherMap, Geoapify |
-| Observability           | Langfuse + OpenTelemetry |
-| Document text           | `pdf-parse` |
-| API exploration         | Bruno (`backend/bruno/TripMind`) |
-| Unit tests              | Node.js test runner (`tsx --test` / `node --test`) |
-| Quality eval            | Golden dataset + LLM-as-judge (`npm run eval`) |
-| Deploy                  | Frontend: Firebase Hosting. Backend: Render. Vectors: Chroma Cloud in production |
+I built TripMind end to end as a production-style LLM application, not a prompt wrapper. These are the engineering problems it addresses:
 
-## Production Deployment
+**LLM orchestration and reliability**
+- A **planner → validator graph** built with LangGraph. A second LLM pass reviews each itinerary and can send it back to the planner with feedback, up to 2 retries. If none passes, the best attempt is returned.
+- **Structured output that is checked twice:** Gemini `responseSchema` at generation time, then **Zod** validation before anything reaches the client.
+- A **tool-calling loop** (`get_weather`, `get_places`) with a hard cap on iterations, so the model can't chain tool calls without limit.
+- **Retries with backoff** for transient Gemini errors.
 
-The production backend runs as a free Render Web Service at
-[`https://tripmind-c2dm.onrender.com`](https://tripmind-c2dm.onrender.com).
-PostgreSQL runs on Neon: the Neon `main` branch is production and its `dev`
-branch is used for development. Chroma remains on Chroma Cloud. Firebase,
-Auth0, and Langfuse were not changed as part of this deployment migration.
+**Cost control**
+- A per-call **output-token ceiling** for each call type (planner, validator, tool loop, memory, image).
+- A configurable **USD budget cap** (`GEMINI_MAX_BUDGET_USD`) plus per-request cost logging.
+- Character caps on RAG context and tool results, so the prompt can't grow without limit.
 
-The Render service uses Node.js, builds with `npm install && npm run build`,
-and starts with `node dist/index.js`. The application must listen on the port
-provided by `process.env.PORT` and on `0.0.0.0`.
+**Retrieval-augmented generation**
+- Two separate **ChromaDB** collections, one for public guides and one for private user documents, using cosine distance with a calibrated threshold.
+- An ingestion pipeline (extract → chunk → embed) with a per-document chunk cap to keep embedding costs predictable.
 
-Render is configured to check `/health`. **The current backend source does not
-yet register this endpoint**, so it must be implemented before this health
-check can be relied upon. It should return `200` without querying external
-services.
+**Security and privacy**
+- Auth0 JWT on every API route. The `userId` always comes from the token (`sub`), never from the request body.
+- **AES-256-GCM encryption** of user document chunks, with a key derived per user from a master key.
+- Data retention is enforced by a **daily GitHub Actions cron job** that calls a secret-protected internal cleanup endpoint.
 
-Production configuration includes `DATABASE_URL` (Neon), Auth0 variables,
-Gemini variables, `DOCS_MASTER_KEY`, `CRON_SECRET`, Langfuse variables, Chroma
-Cloud credentials, and the weather/place API keys. `FRONTEND_URL` must be set
-to `https://mytripmind-io.web.app` so CORS permits its `GET`, `POST`, and
-`DELETE` requests. The frontend `VITE_API_URL` and GitHub Actions
-`BACKEND_URL` must both use the Render URL; GitHub Actions `CRON_SECRET` must
-match Render's value.
+**User experience**
+- **Server-Sent Events streaming** with partial-JSON parsing, so days appear as soon as they're complete.
 
-Render's free service can sleep after approximately 15 minutes without traffic.
-The first request after it wakes up can therefore be slower than usual.
+**Quality and observability**
+- An **LLM-as-judge evaluation** over a golden dataset (`npm run eval`) to catch regressions in itinerary quality.
+- **Langfuse + OpenTelemetry** tracing of every generation.
+- Unit tests for the backend and the frontend.
+
+**Engineering process**
+- **Spec-driven development** with [OpenSpec](openspec/). Each feature starts as a proposal, design and task list, and is archived when complete.
+- Versioned SQL migrations with a tracked `schema_migrations` table. Running migrations against production requires manual confirmation.
+- AI-assisted PR reviews (CodeRabbit) and CI/CD to Firebase Hosting.
 
 ## Architecture
 
 ```
-  Browser (React + Vite + Auth0)
+  Browser (React 19 + Vite + Auth0)
         │  JWT
-        │  POST /api/itinerary/stream   (SSE)
-        │  GET  /api/itinerary/history
-        │  GET  /api/itinerary/history/:id
+        │  POST   /api/itinerary/stream        (SSE)
+        │  GET    /api/itinerary/history[/:id]
         │  DELETE /api/itinerary/history/:id
-        │  POST /api/documents/upload
-        │  GET  /api/documents
+        │  POST   /api/documents/upload
+        │  GET    /api/documents
         │  DELETE /api/documents/:id
-        │  POST /api/image/...
+        │  POST   /api/image/identify
         ▼
-┌───────────────────────────────────┐
-│  Backend (Express)                │
-│                                   │
-│  checkJwt (Auth0)                 │
-│           │                       │
-│           ▼                       │
-│  LangGraph orchestrator           │
-│    planificador → validador       │
-│    (retry until valid or cap)     │
-│           │                       │
-│           ├─ Gemini tool loop     │
-│           │    get_weather        │
-│           │    get_places         │
-│           ├─ RAG retrieve         │
-│           │    public guides      │
-│           │    user docs (decrypt)│
-│           └─ user memory (PG)     │
-│                                   │
-│  Zod-validated itinerary JSON     │
-└───────────────────────────────────┘
+┌──────────────────────────────────────┐
+│  Backend (Express 5 + TypeScript)    │
+│                                      │
+│  checkJwt (Auth0)                    │
+│        │                             │
+│        ▼                             │
+│  LangGraph orchestrator              │
+│    planner ──► validator             │
+│       ▲            │ rejected        │
+│       └────────────┘ (max 2 retries) │
+│        │                             │
+│        ├─ Gemini tool loop           │
+│        │    get_weather · get_places │
+│        ├─ RAG retrieval              │
+│        │    public guides            │
+│        │    user docs (decrypted)    │
+│        └─ user memory                │
+│                                      │
+│  Zod-validated itinerary JSON        │
+└──────────────────────────────────────┘
         │
-        ├── PostgreSQL     metadata, user_memory, user_documents, user_itineraries
-        ├── ChromaDB       embeddings (public guides + encrypted user chunks)
-        └── Gemini         generation, embeddings, image identify, eval judge
+        ├── PostgreSQL (Neon)  user_memory, user_documents, user_itineraries
+        ├── ChromaDB           embeddings (public guides + encrypted user chunks)
+        └── Gemini             generation, embeddings, image identification, eval judge
 
-GitHub Actions (daily) ──POST /internal/cleanup──► drop expired user documents and itineraries
+GitHub Actions (daily) ── POST /internal/cleanup ──► remove expired documents and itineraries
 ```
 
-Request path for an itinerary:
+### What happens when you ask for an itinerary
 
-1. The user sends a natural-language prompt. The route authenticates the JWT
-   and takes `userId` from the token (`sub`), never from the body.
-2. The orchestrator runs the planner. Gemini may call `get_weather` and
-   `get_places`. The prompt is augmented with RAG context and user memory.
-3. Gemini returns JSON that must match the itinerary schema. The validator
-   node can send the planner back with feedback (up to two attempts).
-4. The final itinerary is sent to the client over SSE, day by day. Each
-   activity includes `source`.
-5. User memory is updated once, from the original prompt (not from retry
-   prompts).
+1. The request is authenticated, and `userId` is taken from the JWT.
+2. The **planner** node builds the prompt from three things: the user's request, retrieved RAG context (public and private), and the user's stored travel memory. Gemini may call the weather and places tools.
+3. Gemini returns JSON that must match the itinerary schema. The **validator** node either accepts it or sends it back with reasons.
+4. The final itinerary is streamed to the client over SSE, day by day. Each activity has a `source`.
+5. The itinerary is saved to history, and the user's travel memory is updated from the original prompt.
 
-Private documents: the original file is not stored. Text is chunked, embedded,
-encrypted (AES-256-GCM with a key derived from `DOCS_MASTER_KEY` + `user_id`),
-and written to a separate Chroma collection. Postgres keeps only metadata and
-expiry.
+### How private documents are handled
 
-## Setup Instructions
+The original file is never stored. Its text is extracted, chunked and embedded. Each chunk is encrypted with AES-256-GCM, using a key derived from `DOCS_MASTER_KEY` and the user ID, and written to a dedicated Chroma collection. PostgreSQL keeps only metadata and the expiry date.
+
+## Tech stack
+
+| Area | Technology |
+| --- | --- |
+| LLM | Google Gemini (`@google/genai`): generation, embeddings, vision |
+| Orchestration | LangGraph (planner + validator nodes) |
+| Backend | Node.js, Express 5, TypeScript |
+| Frontend | React 19, Vite, Auth0 React SDK |
+| Validation | Zod + Gemini `responseSchema` |
+| Vector store | ChromaDB (Chroma Cloud in production) |
+| Relational DB | PostgreSQL on Neon (`pg`) |
+| Auth | Auth0 (SPA + JWT-protected API) |
+| Streaming | Server-Sent Events |
+| External APIs | OpenWeatherMap, Geoapify |
+| Observability | Langfuse, OpenTelemetry |
+| Testing | Node.js test runner, Testing Library, LLM-as-judge eval |
+| CI/CD and hosting | GitHub Actions, Firebase Hosting (frontend), Render (backend) |
+
+## Project structure
+
+```
+tripmind/
+├── backend/
+│   ├── src/
+│   │   ├── index.ts           # Express app and route registration
+│   │   ├── orchestrator/      # LangGraph graph, state, planner and validator nodes
+│   │   ├── routes/            # itinerary, itineraryHistory, documents, image, internal
+│   │   ├── services/          # itinerary generation, tool loop, prompts, history, cleanup
+│   │   ├── rag/               # ingest, extract, chunk, embed, retrieve (public + private)
+│   │   ├── tools/             # get_weather / get_places declarations and implementations
+│   │   ├── schemas/           # Gemini response schemas + Zod validators
+│   │   ├── middleware/        # Auth0 JWT check
+│   │   ├── eval/              # golden dataset + LLM-as-judge runner
+│   │   └── utils/             # SSE, crypto, cost logging, retries, logging
+│   ├── script_sql/            # numbered SQL migrations
+│   ├── scripts/migrate.mjs    # migration runner
+│   ├── bruno/                 # Bruno HTTP collection for manual API testing
+│   └── Dockerfile
+├── frontend/
+│   └── src/                   # React components, hooks and unit tests
+├── documentation/             # API spec (OpenAPI), data model, standards, deployment
+├── openspec/                  # spec-driven change proposals, specs and archive
+└── .github/workflows/         # daily cleanup cron + Firebase Hosting deploys
+```
+
+## Getting started
 
 ### Prerequisites
 
-- Node.js 18+ (20 recommended; the backend Docker image uses Node 20)
-- npm
-- Docker (PostgreSQL and, optionally, local Chroma)
-- API keys:
-  [Gemini](https://ai.google.dev/),
-  [OpenWeatherMap](https://openweathermap.org/api),
-  [Geoapify](https://www.geoapify.com/)
-- An Auth0 application (SPA) and API audience
-- Python + Chroma **or** Docker, if you run Chroma locally instead of Chroma Cloud
+- Node.js 20+
+- PostgreSQL (local Docker or a free [Neon](https://neon.tech) database)
+- ChromaDB (local via Docker or Python, or Chroma Cloud)
+- API keys: [Gemini](https://ai.google.dev/), [OpenWeatherMap](https://openweathermap.org/api), [Geoapify](https://www.geoapify.com/)
+- An [Auth0](https://auth0.com/) SPA application and an API audience
 
-Clone the repository and stay at the repo root for the steps below.
+### 1. Clone
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/federicoruf/tripmind.git
 cd tripmind
 ```
 
-### PostgreSQL via Docker
-
-Postgres stores user-document metadata and per-user memory. Production uses
-Neon; its `main` branch is production and its `dev` branch is for development.
-For local development you can
-run PostgreSQL in Docker:
+### 2. Start the databases
 
 ```bash
-docker run -d \
-  --name tripmind-postgres \
-  -e POSTGRES_USER=tripmind \
-  -e POSTGRES_PASSWORD=tripmind \
-  -e POSTGRES_DB=tripmind \
-  -p 5432:5432 \
-  postgres:16
+# PostgreSQL
+docker run -d --name tripmind-postgres \
+  -e POSTGRES_USER=tripmind -e POSTGRES_PASSWORD=tripmind -e POSTGRES_DB=tripmind \
+  -p 5432:5432 postgres:16
+
+# ChromaDB (skip if you use Chroma Cloud)
+docker run -d --name tripmind-chroma -p 8000:8000 \
+  -v ./chroma-data:/data chromadb/chroma:1.5.3
 ```
 
-Apply the document schema:
+> `backend/src/db.ts` turns on SSL for hosted databases. If your local container rejects SSL, either change that setting for local use or use a free Neon database.
 
-```bash
-docker exec -i tripmind-postgres \
-  psql -U tripmind -d tripmind < backend/script_sql/001_user_documents.sql
-```
-
-You also need a `user_memory` table (`user_id`, `resumen_texto`, `updated_at`)
-if it is not already present on that database.
-
-Point the backend at this instance:
-
-```text
-DATABASE_URL=postgresql://tripmind:tripmind@localhost:5432/tripmind
-```
-
-`backend/src/db.ts` enables SSL for hosted PostgreSQL. If a local container rejects SSL,
-adjust that client config for local use, or use a hosted database that
-supports SSL.
-
-Stop and remove the container when you no longer need it:
-
-```bash
-docker stop tripmind-postgres
-docker rm tripmind-postgres
-```
-
-### Backend
+### 3. Configure and run the backend
 
 ```bash
 cd backend
 cp .env.example .env
+npm install
 ```
 
-Fill at least:
+Fill in `.env`:
 
-| Variable | Role |
-| -------- | ---- |
+| Variable | Purpose |
+| --- | --- |
 | `GEMINI_API_KEY` | LLM, embeddings, eval judge |
-| `OPENWEATHER_API_KEY` | `get_weather` |
-| `GEOAPIFY_API_KEY` | `get_places` |
-| `DATABASE_URL` | Postgres (see previous section) |
-| `AUTH0_DOMAIN` | JWT issuer host, without `https://` |
-| `AUTH0_AUDIENCE` | API audience |
-| `DOCS_MASTER_KEY` | 32-byte hex key for user-document encryption |
+| `OPENWEATHER_API_KEY` | `get_weather` tool |
+| `GEOAPIFY_API_KEY` | `get_places` tool |
+| `DATABASE_URL` | PostgreSQL connection used by the app |
+| `DATABASE_URL_DEV` | PostgreSQL connection used by the migration runner |
+| `AUTH0_DOMAIN` | Auth0 tenant host, without `https://` |
+| `AUTH0_AUDIENCE` | Auth0 API audience |
+| `DOCS_MASTER_KEY` | 32-byte hex key for document encryption |
 | `CRON_SECRET` | Protects `POST /internal/cleanup` |
 | `FRONTEND_URL` | CORS origin (`http://localhost:5173` locally) |
-| `PORT` | Defaults to `3000` |
 
-Optional: `CHROMA_API_KEY`, `CHROMA_TENANT`, `CHROMA_DATABASE` for Chroma Cloud.
-If those are empty, the backend uses Chroma on `localhost:8000`.
+Optional variables: `PORT` (default `3000`), `GEMINI_MODEL`, `GEMINI_MAX_BUDGET_USD`, `DEBUG_RAG`, the Langfuse keys, and `CHROMA_API_KEY` / `CHROMA_TENANT` / `CHROMA_DATABASE` for Chroma Cloud. Without the Chroma variables, the backend uses `localhost:8000`.
 
-Optional: `GEMINI_MODEL`, `GEMINI_MAX_BUDGET_USD`, `DEBUG_RAG`, Langfuse keys.
-
-Generate secrets:
+To generate secrets:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Start Chroma locally (pick one):
+Apply the migrations, load the public guides into Chroma, and start the API:
 
 ```bash
-# Option A — Python
-pip install chromadb
-chroma run --host localhost --port 8000 --path ./chroma-data
-
-# Option B — Docker
-docker run -d -p 8000:8000 -v ./chroma-data:/data chromadb/chroma:1.5.3
-```
-
-Install, ingest public guides, and run the API:
-
-```bash
-cd backend
-npm install
+npm run db:migrate:dev
 npm run ingest
-npm run dev
+npm run dev          # http://localhost:3000
 ```
 
-The API listens on [http://localhost:3000](http://localhost:3000).
+### 4. Configure and run the frontend
 
-Smoke-test streaming (replace the token with a valid Auth0 access token):
-
-```bash
-curl -N -X POST http://localhost:3000/api/itinerary/stream \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{"prompt": "3 days in Lisbon in October, is it cold?"}'
-```
-
-Bruno requests live under `backend/bruno/TripMind/` (local and prod
-environments). Do not commit live tokens.
-
-Backend unit tests:
-
-```bash
-cd backend
-npm test
-```
-
-Semantic eval of generated itineraries (calls Gemini; uses quota):
-
-```bash
-cd backend
-npm run eval
-```
-
-### Frontend
-
-Create `frontend/.env` (Vite only exposes variables prefixed with `VITE_`):
+Create `frontend/.env`:
 
 ```text
 VITE_API_URL=http://localhost:3000
@@ -338,87 +251,51 @@ VITE_AUTH0_CLIENT_ID=
 VITE_AUTH0_AUDIENCE=
 ```
 
-Auth0 must allow `http://localhost:5173` as a callback, logout, and web origin.
-The SPA audience must match `AUTH0_AUDIENCE` on the backend.
+In Auth0, add `http://localhost:5173` as an allowed callback URL, logout URL and web origin. `VITE_AUTH0_AUDIENCE` must match `AUTH0_AUDIENCE` on the backend.
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev          # http://localhost:5173
 ```
 
-The UI is at [http://localhost:5173](http://localhost:5173).
-
-Frontend unit tests:
+## Testing
 
 ```bash
-cd frontend
-npm test
+cd backend  && npm test       # backend unit tests (Node test runner + tsx)
+cd frontend && npm test       # frontend unit tests
+cd backend  && npm run eval   # LLM-as-judge quality eval (calls Gemini and uses quota)
 ```
 
-From the repo root, `./start.sh` opens backend and frontend in separate
-terminals on Git Bash / MSYS (Windows).
+For manual API exploration, the Bruno collection in `backend/bruno/TripMind/` has requests for local and production environments.
 
-### Cypress Testing Suite
+## Deployment
 
-This repository does **not** currently include a Cypress project (`cypress/`
-folder, `cypress.config` file, or `cypress` npm dependency). End-to-end
-coverage is not run with Cypress today.
+| Component | Platform |
+| --- | --- |
+| Frontend | Firebase Hosting, deployed by GitHub Actions on merge to `master` |
+| Backend | Render Web Service (`npm install && npm run build`, then `node dist/index.js`) |
+| PostgreSQL | Neon: the `main` branch is production, the `dev` branch is development |
+| Vectors | Chroma Cloud |
+| Scheduled cleanup | GitHub Actions cron job, daily at 03:00 UTC |
 
-Use the suites that *are* in the repo:
+See [`documentation/deployment.md`](documentation/deployment.md) for the full production setup.
 
-```bash
-# Backend unit tests (Node test runner via tsx)
-cd backend && npm test
+## Documentation
 
-# Frontend unit tests (Node test runner)
-cd frontend && npm test
+- [API specification (OpenAPI)](documentation/api-spec.yml)
+- [Data model](documentation/data.model.md)
+- [Backend standards](documentation/backend-standards.md) · [Frontend standards](documentation/frontend-standards.md) · [Testing standards](documentation/testing-standards.md)
+- [Deployment](documentation/deployment.md)
+- [OpenSpec specs and change history](openspec/)
 
-# LLM quality eval (golden dataset + judge)
-cd backend && npm run eval
-```
+## Roadmap
 
-Manual / API checks: Bruno collection in `backend/bruno/TripMind/`.
+- `/health` endpoint for Render health checks
+- End-to-end tests (Playwright or Cypress)
+- More public travel guides beyond Lisbon
+- Export an itinerary to PDF or a calendar
 
-If you add Cypress later, the usual local pattern would be: start Postgres,
-Chroma, backend, and frontend, then from the folder that owns the Cypress
-config:
+## Author
 
-```bash
-npx cypress open    # interactive
-npx cypress run     # headless
-```
-
-Those commands will fail until Cypress is installed and specs are added.
-
-#Errors
-
-## Error: 
-# Error
- Failed to initialize: session/start failed: [internal_error] Layer 'project-toml': _build_config_snapshot() failed
- Solution: wrong content inside the file
-
----------------------
-- Prueba: ambas variable hablitadas para ejecutarse dentro de la terminal actual:
-- Test: both variables enabled to execute inside current terminal
-foreach ($n in "GITHUB_PAT","ATLASSIAN_BASIC") {
->>   $p = [bool][Environment]::GetEnvironmentVariable($n,"Process")
->>   $u = [bool][Environment]::GetEnvironmentVariable($n,"User")
->>   "$n -> en esta terminal: $p | guardada en Windows: $u"
->> }
-
-
-#IA
-* Development integrated with Mistral Vibe
-* Add two MPC: Jira and GitHub
-* Both need operating system vars called GITHUB_PAT and ATLASSIAN_BASIC
-
-# Error
-On cron execution, I get this error message:
-Run curl -fsS -X POST "***/internal/cleanup" \
-curl: (22) The requested URL returned error: 500
-
-Error: Process completed with exit code 22.
-
-SOLUTION: Render server is down, so need to enter the app first get it up.
-
+**Federico Rufrancos** · [GitHub](https://github.com/federicoruf)
